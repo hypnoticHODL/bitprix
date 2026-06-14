@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Bitprix</string>
+    <string name="widget_pair_format">Bitcoin %1$s</string>
+</resources>
