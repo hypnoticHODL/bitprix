@@ -53,15 +53,13 @@ class BitcoinWidgetWorker(
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "widget_refresh",
-                "Widget Refresh",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
+
+        val channel = NotificationChannel(
+            "widget_refresh",
+            "Widget Refresh",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        notificationManager.createNotificationChannel(channel)
 
         val notification = NotificationCompat.Builder(context, "widget_refresh")
             .setContentTitle("Refreshing Bitcoin Widget")

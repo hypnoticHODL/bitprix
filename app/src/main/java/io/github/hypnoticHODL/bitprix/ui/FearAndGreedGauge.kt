@@ -44,6 +44,22 @@ class FearAndGreedGauge @JvmOverloads constructor(
     private val pivotRectF = RectF()
     private val strokeWidthRatio = 0.15f
 
+    // PreAllocated objects to avoid allocations in onDraw
+    private val shaderColors = intArrayOf(
+        ContextCompat.getColor(context, R.color.gauge_deep_red),
+        ContextCompat.getColor(context, R.color.gauge_deep_red),
+        ContextCompat.getColor(context, R.color.gauge_orange),
+        ContextCompat.getColor(context, R.color.gauge_yellow),
+        ContextCompat.getColor(context, R.color.gauge_light_green),
+        ContextCompat.getColor(context, R.color.gauge_deep_green),
+        ContextCompat.getColor(context, R.color.gauge_deep_green)
+    )
+    private val shaderPos = floatArrayOf(0f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 1.0f)
+    private val gradientMatrix = Matrix()
+    private var cachedShader: SweepGradient? = null
+    private var cachedShaderWidth = -1
+    private var cachedShaderHeight = -1
+
     // Colors
     private val colorDeepRed = ContextCompat.getColor(context, R.color.gauge_deep_red)
     private val colorOrange = ContextCompat.getColor(context, R.color.gauge_orange)
@@ -65,15 +81,15 @@ class FearAndGreedGauge @JvmOverloads constructor(
         if (width <= 0 || height <= 0) return
 
         val centerX = width / 2
-        
+
         // Gauge sizing
         val radius = (width * 0.42f).coerceAtMost(height * 0.6f)
         val currentStrokeWidth = radius * strokeWidthRatio
-        
+
         // Pivot/Semicircle size - reduced by 10%
         val pivotDiameter = width * 0.198f
         val pivotRadius = pivotDiameter / 2f
-        
+
         // Centering vertically
         val totalHeight = radius + (currentStrokeWidth / 2f) + (radius * 0.4f)
         val centerY = (height - totalHeight) / 2f + radius + (currentStrokeWidth / 2f)
@@ -81,39 +97,39 @@ class FearAndGreedGauge @JvmOverloads constructor(
         arcPaint.strokeWidth = currentStrokeWidth
         rectF.set(centerX - radius, centerY - radius, centerX + radius, centerY + radius)
 
-        // Gradient Arc
-        val shaderColors = intArrayOf(
-            colorDeepRed, colorDeepRed, colorOrange, colorYellow, colorLightGreen, colorDeepGreen, colorDeepGreen
-        )
-        val shaderPos = floatArrayOf(0f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 1.0f)
-        val shader = SweepGradient(centerX, centerY, shaderColors, shaderPos)
-        val matrix = Matrix()
-        matrix.postRotate(90f, centerX, centerY)
-        shader.setLocalMatrix(matrix)
-        arcPaint.shader = shader
+        // Gradient Arc - reuse cached shader if size hasn't changed
+        if (cachedShader == null || cachedShaderWidth != width.toInt() || cachedShaderHeight != height.toInt()) {
+            cachedShader = SweepGradient(centerX, centerY, shaderColors, shaderPos)
+            cachedShaderWidth = width.toInt()
+            cachedShaderHeight = height.toInt()
+        }
+        gradientMatrix.reset()
+        gradientMatrix.postRotate(90f, centerX, centerY)
+        cachedShader?.setLocalMatrix(gradientMatrix)
+        arcPaint.shader = cachedShader
 
         // Draw the smooth gradient arc with flat ends (BUTT)
         canvas.drawArc(rectF, 180f, 180f, false, arcPaint)
-        arcPaint.shader = null 
+        arcPaint.shader = null
 
         // Draw improved needle (tapered)
         val angle = 180f + score * 1.8f
         val angleRad = Math.toRadians(angle.toDouble())
         val needleLength = radius - currentStrokeWidth * 0.5f
-        
+
         val angleRadLeft = angleRad - Math.toRadians(2.0)
         val angleRadRight = angleRad + Math.toRadians(2.0)
-        
+
         // Needle starts slightly inside the pivot circle
         val baseRadius = pivotRadius * 0.8f
-        
+
         needlePath.reset()
-        needlePath.moveTo(centerX + baseRadius * cos(angleRadLeft).toFloat(), 
-                          centerY + baseRadius * sin(angleRadLeft).toFloat())
-        needlePath.lineTo(centerX + needleLength * cos(angleRad).toFloat(), 
-                          centerY + needleLength * sin(angleRad).toFloat())
-        needlePath.lineTo(centerX + baseRadius * cos(angleRadRight).toFloat(), 
-                          centerY + baseRadius * sin(angleRadRight).toFloat())
+        needlePath.moveTo(centerX + baseRadius * cos(angleRadLeft).toFloat(),
+            centerY + baseRadius * sin(angleRadLeft).toFloat())
+        needlePath.lineTo(centerX + needleLength * cos(angleRad).toFloat(),
+            centerY + needleLength * sin(angleRad).toFloat())
+        needlePath.lineTo(centerX + baseRadius * cos(angleRadRight).toFloat(),
+            centerY + baseRadius * sin(angleRadRight).toFloat())
         needlePath.close()
         canvas.drawPath(needlePath, whiteFillPaint)
 
@@ -124,14 +140,14 @@ class FearAndGreedGauge @JvmOverloads constructor(
         // Draw value inside pivot semicircle
         val scoreText = score.toString()
         valueInsidePaint.textSize = pivotRadius * 0.64f
-        
+
         val textWidth = valueInsidePaint.measureText(scoreText)
         if (textWidth > pivotDiameter * 0.8f) {
             valueInsidePaint.textSize *= (pivotDiameter * 0.8f) / textWidth
         }
-        
+
         // Position at bottom with small padding
-        val paddingBottom = 6f 
+        val paddingBottom = 6f
         canvas.drawText(scoreText, centerX, centerY - paddingBottom, valueInsidePaint)
 
         // Draw sentiment label below

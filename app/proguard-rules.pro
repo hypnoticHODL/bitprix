@@ -64,8 +64,6 @@
 -keep class okhttp3.internal.Internal { *; }
 -keep class okhttp3.internal.connection.RealConnection { *; }
 -keep class okhttp3.internal.http.RealInterceptorChain { *; }
--keep class okhttp3.internal.http.HttpCodec { *; }
--keep class okhttp3.internal.http.StreamAllocation { *; }
 
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}

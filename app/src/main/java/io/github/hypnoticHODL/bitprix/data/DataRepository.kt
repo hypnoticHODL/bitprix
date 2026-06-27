@@ -10,9 +10,7 @@ import com.google.gson.Gson
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import androidx.core.content.edit
 
 object DataRepository {
     private const val PREFS_NAME = "bitcoin_widget_cache"
@@ -26,7 +24,7 @@ object DataRepository {
 
     private val gson = Gson()
     private val fetchMutex = Mutex()
-    
+
     // Memory cache to handle simultaneous requests in the same process
     private val memoryCache = mutableMapOf<String, Pair<Any, Long>>()
 
@@ -35,12 +33,11 @@ object DataRepository {
     }
 
     suspend fun getSupportedCurrencies(context: Context): List<String>? = fetchMutex.withLock {
-        val cacheKey = KEY_CURRENCIES
-        val timestampKey = "${cacheKey}_timestamp"
+        val timestampKey = "${KEY_CURRENCIES}_timestamp"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         // 1. Check Memory Cache
-        memoryCache[cacheKey]?.let { (data, time) ->
+        memoryCache[KEY_CURRENCIES]?.let { (data, time) ->
             if (isCacheFresh(time)) {
                 Log.d("DataRepository", "Returning memory-cached currencies")
                 @Suppress("UNCHECKED_CAST")
@@ -52,9 +49,9 @@ object DataRepository {
         val lastUpdate = prefs.getLong(timestampKey, 0L)
         if (isCacheFresh(lastUpdate)) {
             val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
-            val cached: List<String>? = getFromCache(context, cacheKey, type)
+            val cached: List<String>? = getFromCache(context, KEY_CURRENCIES, type)
             if (cached != null) {
-                memoryCache[cacheKey] = Pair(cached, lastUpdate)
+                memoryCache[KEY_CURRENCIES] = Pair(cached, lastUpdate)
                 Log.d("DataRepository", "Returning disk-cached currencies")
                 return@withLock cached
             }
@@ -64,15 +61,15 @@ object DataRepository {
         return try {
             val response = NetworkClient.coinGeckoService.getSupportedCurrencies()
             val now = System.currentTimeMillis()
-            saveToCache(context, cacheKey, response)
-            prefs.edit().putLong(timestampKey, now).apply()
-            memoryCache[cacheKey] = Pair(response, now)
+            saveToCache(context, KEY_CURRENCIES, response)
+            prefs.edit { putLong(timestampKey, now) }
+            memoryCache[KEY_CURRENCIES] = Pair(response, now)
             Log.d("DataRepository", "Successfully fetched currencies from network")
             response
         } catch (e: Exception) {
             Log.e("DataRepository", "Error fetching currencies: ${e.message}")
             val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
-            getFromCache(context, cacheKey, type)
+            getFromCache(context, KEY_CURRENCIES, type)
         }
     }
 
@@ -116,7 +113,7 @@ object DataRepository {
             val now = System.currentTimeMillis()
             response.lastFetchTime = now
             saveToCache(context, cacheKey, response)
-            prefs.edit().putLong(timestampKey, now).apply()
+            prefs.edit { putLong(timestampKey, now) }
             saveLastUpdateTime(context, now) // Pass the actual fetch time
             memoryCache[cacheKey] = Pair(response, now)
             Log.d("DataRepository", "Successfully fetched price for $currency from network")
@@ -178,7 +175,7 @@ object DataRepository {
             val now = System.currentTimeMillis()
             response.lastFetchTime = now
             saveToCache(context, cacheKey, response)
-            prefs.edit().putLong(timestampKey, now).apply()
+            prefs.edit { putLong(timestampKey, now) }
             memoryCache[cacheKey] = Pair(response, now)
             response
         } catch (e: Exception) {
@@ -193,12 +190,11 @@ object DataRepository {
     }
 
     suspend fun getFearAndGreed(context: Context, forceRefresh: Boolean = false): FearAndGreedResponse? = fetchMutex.withLock {
-        val cacheKey = KEY_FNG
-        val timestampKey = "${cacheKey}_timestamp"
+        val timestampKey = "${KEY_FNG}_timestamp"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         if (!forceRefresh) {
-            memoryCache[cacheKey]?.let { (data, time) ->
+            memoryCache[KEY_FNG]?.let { (data, time) ->
                 if (isCacheFresh(time)) {
                     @Suppress("UNCHECKED_CAST")
                     val response = data as FearAndGreedResponse
@@ -209,27 +205,27 @@ object DataRepository {
 
             val lastUpdate = prefs.getLong(timestampKey, 0L)
             if (isCacheFresh(lastUpdate)) {
-                val cached = getFromCache(context, cacheKey, FearAndGreedResponse::class.java)
+                val cached = getFromCache(context, KEY_FNG, FearAndGreedResponse::class.java)
                 if (cached != null) {
                     cached.lastFetchTime = lastUpdate
-                    memoryCache[cacheKey] = Pair(cached, lastUpdate)
+                    memoryCache[KEY_FNG] = Pair(cached, lastUpdate)
                     return@withLock cached
                 }
             }
         } else {
-            memoryCache.remove(cacheKey)
+            memoryCache.remove(KEY_FNG)
         }
 
         return try {
             val response = NetworkClient.fearAndGreedService.getFearAndGreed()
             val now = System.currentTimeMillis()
             response.lastFetchTime = now
-            saveToCache(context, cacheKey, response)
-            prefs.edit().putLong(timestampKey, now).apply()
-            memoryCache[cacheKey] = Pair(response, now)
+            saveToCache(context, KEY_FNG, response)
+            prefs.edit { putLong(timestampKey, now) }
+            memoryCache[KEY_FNG] = Pair(response, now)
             response
         } catch (e: Exception) {
-            val stale = getFromCache(context, cacheKey, FearAndGreedResponse::class.java)
+            val stale = getFromCache(context, KEY_FNG, FearAndGreedResponse::class.java)
             if (stale != null) {
                 stale.lastFetchTime = prefs.getLong(timestampKey, 0L)
                 stale
@@ -240,16 +236,16 @@ object DataRepository {
     }
 
     private fun saveLastUpdateTime(context: Context, timestamp: Long = System.currentTimeMillis()) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-            .putLong(KEY_LAST_UPDATE, timestamp)
-            .apply()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putLong(KEY_LAST_UPDATE, timestamp)
+        }
     }
 
     private fun <T> saveToCache(context: Context, key: String, data: T) {
         val json = gson.toJson(data)
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-            .putString(key, json)
-            .apply()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString(key, json)
+        }
     }
 
     private fun <T> getFromCache(context: Context, key: String, type: java.lang.reflect.Type): T? {
@@ -257,7 +253,7 @@ object DataRepository {
             .getString(key, null) ?: return null
         return try {
             gson.fromJson(json, type)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -267,8 +263,10 @@ object DataRepository {
             .getString(key, null) ?: return null
         return try {
             gson.fromJson(json, clazz)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
 }
+
+

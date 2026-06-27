@@ -462,8 +462,8 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val fileName = getString(R.string.screenshot_filename_prefix) + "${System.currentTimeMillis()}.png"
             val folderName = getString(R.string.screenshot_folder_name)
-            var outputStream: OutputStream? = null
-            
+            var outputStream: OutputStream?
+
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val contentValues = ContentValues().apply {
