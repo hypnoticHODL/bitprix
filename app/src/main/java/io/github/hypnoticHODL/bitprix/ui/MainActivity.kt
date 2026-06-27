@@ -25,6 +25,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import java.io.File
 import java.io.FileOutputStream
 import java.net.UnknownHostException
@@ -126,7 +127,7 @@ class MainActivity : AppCompatActivity() {
                 else -> 1
             }
             if (currentDays == 1) {
-                loadOneDayChart(force = false)
+                loadOneDayChart()
             } else {
                 filterAndDisplayChart()
             }
@@ -323,15 +324,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadOneDayChart(force: Boolean) {
-        if (!force && oneDayChartData != null) {
+    private fun loadOneDayChart() {
+        if (oneDayChartData != null) {
             updateChart(oneDayChartData!!)
             return
         }
 
         lifecycleScope.launch {
             try {
-                val response = DataRepository.getMarketChart(this@MainActivity, currentCurrency, "1", forceRefresh = force)
+                val response = DataRepository.getMarketChart(this@MainActivity, currentCurrency, "1", forceRefresh = false)
                 oneDayChartData = response?.prices
                 if (currentDays == 1) {
                     oneDayChartData?.let { updateChart(it) }
@@ -455,7 +456,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val container = chart.parent as View
-        val bitmap = Bitmap.createBitmap(container.width, container.height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(container.width, container.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         container.draw(canvas)
 
