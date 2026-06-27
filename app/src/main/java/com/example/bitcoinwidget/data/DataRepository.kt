@@ -127,9 +127,9 @@ object DataRepository {
         }
     }
 
-    suspend fun getMarketChart(context: Context, currency: String = "usd"): MarketChartResponse? = fetchMutex.withLock {
+    suspend fun getMarketChart(context: Context, currency: String = "usd", days: String = "365"): MarketChartResponse? = fetchMutex.withLock {
         val currencyKey = currency.lowercase()
-        val cacheKey = "${KEY_CHART}_$currencyKey"
+        val cacheKey = "${KEY_CHART}_${currencyKey}_$days"
         val timestampKey = "${cacheKey}_timestamp"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -153,7 +153,12 @@ object DataRepository {
         }
 
         return try {
-            val response = NetworkClient.coinGeckoService.getMarketChart(vsCurrency = currencyKey)
+            val interval = if (days == "1") "hourly" else "daily"
+            val response = NetworkClient.coinGeckoService.getMarketChart(
+                vsCurrency = currencyKey,
+                days = days,
+                interval = interval
+            )
             val now = System.currentTimeMillis()
             response.lastFetchTime = now
             saveToCache(context, cacheKey, response)

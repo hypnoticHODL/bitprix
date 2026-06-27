@@ -5,16 +5,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <androidx.core.widget.NestedScrollView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center_horizontal">
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
 
         <TextView
             android:id="@+id/tv_pair_label"
@@ -22,7 +21,7 @@
             android:layout_height="wrap_content"
             android:text="Bitcoin USD"
             android:textSize="14sp"
-            android:layout_marginTop="24dp" />
+            android:layout_marginTop="8dp" />
 
         <TextView
             android:id="@+id/tv_bitcoin_price"
@@ -47,54 +46,101 @@
             android:text="--:--"
             android:textSize="12sp"
             android:textColor="@android:color/darker_gray"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="8dp" />
 
-        <com.github.mikephil.charting.charts.LineChart
-            android:id="@+id/chart_bitcoin"
-            android:layout_width="match_parent"
-            android:layout_height="250dp"
-            android:layout_marginTop="32dp" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/cg_timeframe"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:gravity="center">
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                app:singleLine="true">
 
-                <TextView
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_1d"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Fear &amp; Greed Index"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:text="1D"
+                    android:checked="true" />
 
-                <TextView
-                    android:id="@+id/tv_fng_value"
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_1w"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="--"
-                    android:textSize="48sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/purple_500" />
+                    android:text="1W" />
 
-                <TextView
-                    android:id="@+id/tv_fng_classification"
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_1m"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="--"
-                    android:textSize="18sp" />
+                    android:text="1M" />
 
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_6m"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="6M" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_1y"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1Y" />
+            </com.google.android.material.chip.ChipGroup>
+
+            <ImageButton
+                android:id="@+id/btn_screenshot"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_screenshot_btn"
+                android:src="@android:drawable/ic_menu_camera"
+                app:tint="@android:color/white"
+                android:padding="7dp"
+                android:scaleType="centerInside"
+                android:contentDescription="Save Screenshot" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="4dp"
+            android:layout_marginStart="-16dp"
+            android:layout_marginEnd="-16dp">
+
+            <ImageView
+                android:layout_width="150dp"
+                android:layout_height="150dp"
+                android:layout_gravity="center"
+                android:alpha="0.1"
+                android:src="@drawable/ic_launcher_foreground"
+                android:contentDescription="@null" />
+
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/chart_bitcoin"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
+
+        <com.example.bitcoinwidget.ui.FearAndGreedGauge
+            android:id="@+id/fng_gauge"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp" />
 
     </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
