@@ -15,7 +15,9 @@ Bitprix is a modern, lightweight Android application and home screen widget desi
 
 ## Screenshots
 
-*(Place screenshots here in the future)*
+| Configuration          | Widgets                         | App                                  |
+|------------------------|---------------------------------|--------------------------------------|
+| ![creen](screenshots/bitprix-widget-settings.webp) | ![Gauge](screenshots/bitprix-widgets.webp) | ![App](screenshots/bitprix-app.webp) |
 
 ## Getting Started
 
@@ -23,6 +25,11 @@ Bitprix is a modern, lightweight Android application and home screen widget desi
 - Android device running API 24 (Nougat) or higher.
 
 ### Installation
+1. Download [the latest APK](https://github.com/hypnoticHODL/bitprix/releases/latest) and install it on your Android device (API 26+).
+2. Enable "Install from unknown sources" in your settings if required.
+
+or
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/hypnoticHODL/bitprix.git
