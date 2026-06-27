@@ -12,125 +12,123 @@
         android:padding="16dp"
         android:gravity="center_horizontal">
 
-        <LinearLayout
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_theme"
+            android:textStyle="bold" />
+
+        <RadioGroup
+            android:id="@+id/rg_theme"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="start">
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal">
 
-            <TextView
+            <RadioButton
+                android:id="@+id/rb_theme_light"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/label_theme"
-                android:textStyle="bold" />
+                android:checked="true"
+                android:text="@string/theme_light" />
 
-            <RadioGroup
-                android:id="@+id/rg_theme"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="16dp">
-                <RadioButton
-                    android:id="@+id/rb_theme_light"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/theme_light"
-                    android:checked="true" />
-                <RadioButton
-                    android:id="@+id/rb_theme_dark"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/theme_dark" />
-            </RadioGroup>
-
-            <TextView
+            <RadioButton
+                android:id="@+id/rb_theme_dark"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/label_bg_opacity"
-                android:textStyle="bold" />
-            <SeekBar
-                android:id="@+id/sb_bg_opacity"
+                android:text="@string/theme_dark" />
+        </RadioGroup>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_bg_opacity"
+            android:textStyle="bold" />
+
+        <SeekBar
+            android:id="@+id/sb_bg_opacity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:max="255"
+            android:progress="255" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_text_size"
+            android:textStyle="bold" />
+
+        <SeekBar
+            android:id="@+id/sb_text_size"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:max="32"
+            android:min="12"
+            android:progress="22" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_target_currency"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/spinner_currency"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_refresh_interval"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/spinner_refresh_interval"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="24dp"
+            android:entries="@array/refresh_intervals" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="@string/label_live_preview"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp">
+
+            <!-- Scaled preview container -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="255"
-                android:progress="255"
-                android:layout_marginBottom="16dp" />
+                android:layout_height="120dp"
+                android:background="@color/preview_bg"
+                android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_text_size"
-                android:textStyle="bold" />
-            <SeekBar
-                android:id="@+id/sb_text_size"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:min="12"
-                android:max="32"
-                android:progress="22"
-                android:layout_marginBottom="16dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_target_currency"
-                android:textStyle="bold" />
-            <Spinner
-                android:id="@+id/spinner_currency"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_refresh_interval"
-                android:textStyle="bold" />
-            <Spinner
-                android:id="@+id/spinner_refresh_interval"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:entries="@array/refresh_intervals"
-                android:layout_marginBottom="24dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_live_preview"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="4dp"
-                android:layout_marginBottom="24dp">
-
-                <!-- Scaled preview container -->
-                <FrameLayout
+                <include
+                    android:id="@+id/widget_preview"
+                    layout="@layout/widget_layout"
                     android:layout_width="match_parent"
-                    android:layout_height="120dp"
-                    android:background="@color/preview_bg"
-                    android:padding="16dp">
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+        </androidx.cardview.widget.CardView>
 
-                    <include
-                        android:id="@+id/widget_preview"
-                        layout="@layout/widget_layout"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
-                </FrameLayout>
-            </androidx.cardview.widget.CardView>
+        <Button
+            android:id="@+id/btn_save_widget"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="24dp"
+            android:text="@string/btn_save_widget" />
 
-            <Button
-                android:id="@+id/btn_save_widget"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/btn_save_widget"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="24dp" />
-
-
-        </LinearLayout>
     </LinearLayout>
 </ScrollView>
