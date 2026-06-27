@@ -17,15 +17,19 @@ class FearAndGreedGauge @JvmOverloads constructor(
 
     private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
+        strokeCap = Paint.Cap.BUTT
     }
 
-    private val needlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val whiteFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
+        color = Color.WHITE
     }
 
-    private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val needlePath = Path()
+
+    private val valueInsidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
+        color = Color.BLACK
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
 
@@ -35,8 +39,8 @@ class FearAndGreedGauge @JvmOverloads constructor(
     }
 
     private val rectF = RectF()
-    private val needlePath = Path()
-    private val strokeWidthRatio = 0.2f
+    private val pivotRectF = RectF()
+    private val strokeWidthRatio = 0.15f
 
     // Colors
     private val colorDeepRed = Color.parseColor("#B71C1C")
@@ -58,76 +62,81 @@ class FearAndGreedGauge @JvmOverloads constructor(
         val height = height.toFloat()
         if (width <= 0 || height <= 0) return
 
-        val isDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val primaryTextColor = if (isDarkMode) Color.WHITE else Color.parseColor("#212121")
-        val needleColor = if (isDarkMode) Color.parseColor("#EEEEEE") else Color.parseColor("#424242")
-
-        needlePaint.color = needleColor
-        valuePaint.color = primaryTextColor
-
         val centerX = width / 2
-        val radius = (width * 0.4f).coerceAtMost(height * 0.55f)
+        
+        // Gauge sizing
+        val radius = (width * 0.42f).coerceAtMost(height * 0.6f)
         val currentStrokeWidth = radius * strokeWidthRatio
         
-        val totalDrawingHeight = radius + (currentStrokeWidth / 2f) + (radius * 0.5f)
-        val centerY = (height - totalDrawingHeight) / 2f + radius + (currentStrokeWidth / 2f)
+        // Pivot/Semicircle size - reduced by 10%
+        val pivotDiameter = width * 0.198f
+        val pivotRadius = pivotDiameter / 2f
+        
+        // Centering vertically
+        val totalHeight = radius + (currentStrokeWidth / 2f) + (radius * 0.4f)
+        val centerY = (height - totalHeight) / 2f + radius + (currentStrokeWidth / 2f)
 
         arcPaint.strokeWidth = currentStrokeWidth
         rectF.set(centerX - radius, centerY - radius, centerX + radius, centerY + radius)
 
+        // Gradient Arc
         val shaderColors = intArrayOf(
-            colorDeepRed,   
-            colorDeepRed,   
-            colorOrange,
-            colorYellow,
-            colorLightGreen,
-            colorDeepGreen, 
-            colorDeepGreen  
+            colorDeepRed, colorDeepRed, colorOrange, colorYellow, colorLightGreen, colorDeepGreen, colorDeepGreen
         )
-        val shaderPos = floatArrayOf(
-            0f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 1.0f
-        )
-        
+        val shaderPos = floatArrayOf(0f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 1.0f)
         val shader = SweepGradient(centerX, centerY, shaderColors, shaderPos)
         val matrix = Matrix()
         matrix.postRotate(90f, centerX, centerY)
         shader.setLocalMatrix(matrix)
         arcPaint.shader = shader
 
+        // Draw the smooth gradient arc with flat ends (BUTT)
         canvas.drawArc(rectF, 180f, 180f, false, arcPaint)
         arcPaint.shader = null 
 
-        // Draw needle
+        // Draw improved needle (tapered)
         val angle = 180f + score * 1.8f
         val angleRad = Math.toRadians(angle.toDouble())
         val needleLength = radius - currentStrokeWidth * 0.5f
-        val stopX = centerX + needleLength * cos(angleRad).toFloat()
-        val stopY = centerY + needleLength * sin(angleRad).toFloat()
         
-        val needleBaseWidth = currentStrokeWidth * 0.2f
-        val angleRadLeft = angleRad - Math.PI / 2
-        val angleRadRight = angleRad + Math.PI / 2
+        val angleRadLeft = angleRad - Math.toRadians(2.0)
+        val angleRadRight = angleRad + Math.toRadians(2.0)
+        
+        // Needle starts slightly inside the pivot circle
+        val baseRadius = pivotRadius * 0.8f
         
         needlePath.reset()
-        needlePath.moveTo(centerX + needleBaseWidth * cos(angleRadLeft).toFloat(), 
-                          centerY + needleBaseWidth * sin(angleRadLeft).toFloat())
-        needlePath.lineTo(stopX, stopY)
-        needlePath.lineTo(centerX + needleBaseWidth * cos(angleRadRight).toFloat(), 
-                          centerY + needleBaseWidth * sin(angleRadRight).toFloat())
+        needlePath.moveTo(centerX + baseRadius * cos(angleRadLeft).toFloat(), 
+                          centerY + baseRadius * sin(angleRadLeft).toFloat())
+        needlePath.lineTo(centerX + needleLength * cos(angleRad).toFloat(), 
+                          centerY + needleLength * sin(angleRad).toFloat())
+        needlePath.lineTo(centerX + baseRadius * cos(angleRadRight).toFloat(), 
+                          centerY + baseRadius * sin(angleRadRight).toFloat())
         needlePath.close()
-        
-        canvas.drawPath(needlePath, needlePaint)
-        canvas.drawCircle(centerX, centerY, needleBaseWidth * 0.8f, needlePaint)
+        canvas.drawPath(needlePath, whiteFillPaint)
 
-        // Draw value and match label color to gauge position
+        // Draw white pivot semicircle
+        pivotRectF.set(centerX - pivotRadius, centerY - pivotRadius, centerX + pivotRadius, centerY + pivotRadius)
+        canvas.drawArc(pivotRectF, 180f, 180f, true, whiteFillPaint)
+
+        // Draw value inside pivot semicircle
+        val scoreText = score.toString()
+        valueInsidePaint.textSize = pivotRadius * 0.64f
+        
+        val textWidth = valueInsidePaint.measureText(scoreText)
+        if (textWidth > pivotDiameter * 0.8f) {
+            valueInsidePaint.textSize *= (pivotDiameter * 0.8f) / textWidth
+        }
+        
+        // Position at bottom with small padding
+        val paddingBottom = 6f 
+        canvas.drawText(scoreText, centerX, centerY - paddingBottom, valueInsidePaint)
+
+        // Draw sentiment label below
         val sentimentColor = getInterpolatedColor(score)
-        
-        valuePaint.textSize = radius * 0.55f
-        canvas.drawText(score.toString(), centerX, centerY + radius * 0.25f, valuePaint)
-        
         labelPaint.textSize = radius * 0.22f
         labelPaint.color = sentimentColor
-        canvas.drawText(classification.uppercase(), centerX, centerY + radius * 0.52f, labelPaint)
+        canvas.drawText(classification.uppercase(), centerX, centerY + (radius * 0.3f), labelPaint)
     }
 
     private fun getInterpolatedColor(score: Int): Int {
