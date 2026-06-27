@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "io.github.hypnoticHODL.bitprix"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.github.hypnoticHODL.bitprix"
