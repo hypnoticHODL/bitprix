@@ -21,7 +21,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Theme"
+                android:text="@string/label_theme"
                 android:textStyle="bold" />
 
             <RadioGroup
@@ -34,19 +34,19 @@
                     android:id="@+id/rb_theme_light"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Light"
+                    android:text="@string/theme_light"
                     android:checked="true" />
                 <RadioButton
                     android:id="@+id/rb_theme_dark"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Dark" />
+                    android:text="@string/theme_dark" />
             </RadioGroup>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Background Opacity"
+                android:text="@string/label_bg_opacity"
                 android:textStyle="bold" />
             <SeekBar
                 android:id="@+id/sb_bg_opacity"
@@ -59,7 +59,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Text Size"
+                android:text="@string/label_text_size"
                 android:textStyle="bold" />
             <SeekBar
                 android:id="@+id/sb_text_size"
@@ -73,18 +73,30 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Target Currency"
+                android:text="@string/label_target_currency"
                 android:textStyle="bold" />
             <Spinner
                 android:id="@+id/spinner_currency"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_refresh_interval"
+                android:textStyle="bold" />
+            <Spinner
+                android:id="@+id/spinner_refresh_interval"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:entries="@array/refresh_intervals"
                 android:layout_marginBottom="24dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Live Preview"
+                android:text="@string/label_live_preview"
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp" />
 
@@ -99,7 +111,7 @@
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="120dp"
-                    android:background="#EEEEEE"
+                    android:background="@color/preview_bg"
                     android:padding="16dp">
 
                     <include
@@ -114,9 +126,10 @@
                 android:id="@+id/btn_save_widget"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Save Widget"
+                android:text="@string/btn_save_widget"
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="24dp" />
+
 
         </LinearLayout>
     </LinearLayout>

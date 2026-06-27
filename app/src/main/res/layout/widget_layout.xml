@@ -24,8 +24,8 @@
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:layout_alignParentTop="true"
-            android:text="Bitcoin USD"
-            android:textColor="#000000"
+            android:text="@string/widget_pair_format"
+            android:textColor="@color/black"
             android:textSize="14sp" />
 
         <ImageView
@@ -34,7 +34,7 @@
             android:layout_height="24dp"
             android:layout_alignParentTop="true"
             android:layout_alignParentEnd="true"
-            android:contentDescription="Refresh"
+            android:contentDescription="@string/refresh_desc"
             android:padding="4dp"
             android:src="@android:drawable/ic_popup_sync" />
 
@@ -43,8 +43,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:text="--,---.--"
-            android:textColor="#000000"
+            android:text="@string/price_placeholder"
+            android:textColor="@color/black"
             android:textSize="30sp"
             android:textStyle="bold" />
 
@@ -54,8 +54,8 @@
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:layout_alignParentBottom="true"
-            android:text="--:--"
-            android:textColor="#000000"
+            android:text="@string/time_placeholder"
+            android:textColor="@color/black"
             android:textSize="12sp" />
 
         <TextView
@@ -64,9 +64,10 @@
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_alignParentBottom="true"
-            android:text="0.00%"
+            android:text="@string/change_placeholder"
             android:textSize="12sp"
             android:textStyle="bold" />
+
 
     </RelativeLayout>
 </RelativeLayout>

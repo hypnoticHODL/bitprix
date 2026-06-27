@@ -1,4 +1,77 @@
 <resources>
     <string name="app_name">Bitprix</string>
     <string name="widget_pair_format">Bitcoin %1$s</string>
+
+    <!-- Main Activity -->
+    <string name="price_placeholder">--,---.--</string>
+    <string name="change_placeholder">0.00%</string>
+    <string name="time_placeholder">--:--</string>
+    <string name="timeframe_1d">1D</string>
+    <string name="timeframe_1w">1W</string>
+    <string name="timeframe_1m">1M</string>
+    <string name="timeframe_6m">6M</string>
+    <string name="timeframe_1y">1Y</string>
+    <string name="save_screenshot_desc">Save Screenshot</string>
+    <string name="permission_denied_screenshot">Permission denied to save screenshot</string>
+    <string name="context_price">Price</string>
+    <string name="context_chart">Chart</string>
+    <string name="context_fng">Fear &amp; Greed</string>
+    <string name="context_currencies">currencies</string>
+    <string name="screenshot_filename_prefix">Bitprix_Chart_</string>
+    <string name="screenshot_folder_name">Bitprix</string>
+    <string name="placeholder_price">67,234.56</string>
+    <string name="placeholder_change">+2.41%</string>
+    <string name="placeholder_time">19:01</string>
+
+    <!-- Widget Config -->
+    <string name="label_theme">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="label_bg_opacity">Background Opacity</string>
+    <string name="label_text_size">Text Size</string>
+    <string name="label_target_currency">Target Currency</string>
+    <string name="label_refresh_interval">Refresh Interval</string>
+    <string name="label_live_preview">Live Preview</string>
+    <string name="btn_save_widget">Save Widget</string>
+
+    <string-array name="refresh_intervals">
+        <item>15 minutes</item>
+        <item>30 minutes</item>
+        <item>1 hour</item>
+        <item>2 hours</item>
+        <item>6 hours</item>
+        <item>12 hours</item>
+        <item>24 hours</item>
+    </string-array>
+
+    <string-array name="refresh_interval_values">
+        <item>15</item>
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+        <item>360</item>
+        <item>720</item>
+        <item>1440</item>
+    </string-array>
+
+    <!-- Widget -->
+    <string name="refresh_desc">Refresh</string>
+    <string name="error_text">Error</string>
+    <string name="last_update_never">Never</string>
+
+    <!-- Error Messages -->
+    <string name="error_rate_limit">Rate limit reached (429). Please wait.</string>
+    <string name="error_no_internet">No internet connection</string>
+    <string name="error_network">Network error %1$d in %2$s</string>
+    <string name="error_failed_to_load">Failed to load %1$s</string>
+    <string name="error_unexpected">Unexpected error occurred</string>
+    <string name="error_429_short">429</string>
+    <string name="error_no_connection_short">No Connection</string>
+
+    <!-- Success Messages -->
+    <string name="chart_saved">Chart saved!</string>
+    <string name="chart_save_failed">Failed to save chart</string>
+
+    <!-- Chart Labels -->
+    <string name="chart_label_btc_price">BTC Price (%1$s)</string>
 </resources>

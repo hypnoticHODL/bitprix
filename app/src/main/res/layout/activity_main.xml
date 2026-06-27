@@ -5,99 +5,112 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
+        android:fillViewport="true">
 
-        <TextView
-            android:id="@+id/tv_pair_label"
-            android:layout_width="wrap_content"
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Bitcoin USD"
-            android:textSize="14sp"
-            android:layout_marginTop="8dp" />
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
 
-        <TextView
-            android:id="@+id/tv_bitcoin_price"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="--,---.--"
-            android:textSize="32sp"
-            android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tv_pair_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/widget_pair_format"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-        <TextView
-            android:id="@+id/tv_change_percent"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0.00%"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tv_bitcoin_price"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/price_placeholder"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tv_pair_label" />
 
-        <TextView
-            android:id="@+id/tv_last_update"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="--:--"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            android:layout_marginBottom="8dp" />
+            <TextView
+                android:id="@+id/tv_change_percent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/change_placeholder"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tv_bitcoin_price" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tv_last_update"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/time_placeholder"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="12sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tv_change_percent" />
 
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/cg_timeframe"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:singleSelection="true"
+                android:layout_marginTop="8dp"
+                app:layout_constraintEnd_toStartOf="@+id/btn_screenshot"
+                app:layout_constraintHorizontal_chainStyle="packed"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tv_last_update"
                 app:selectionRequired="true"
-                app:singleLine="true">
+                app:singleLine="true"
+                app:singleSelection="true">
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_1d"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1D"
-                    android:checked="true" />
+                    android:checked="true"
+                    android:text="@string/timeframe_1d" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_1w"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1W" />
+                    android:text="@string/timeframe_1w" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_1m"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1M" />
+                    android:text="@string/timeframe_1m" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_6m"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="6M" />
+                    android:text="@string/timeframe_6m" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_1y"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1Y" />
+                    android:text="@string/timeframe_1y" />
             </com.google.android.material.chip.ChipGroup>
 
             <ImageButton
@@ -106,41 +119,52 @@
                 android:layout_height="32dp"
                 android:layout_marginStart="8dp"
                 android:background="@drawable/bg_screenshot_btn"
-                android:src="@android:drawable/ic_menu_camera"
-                app:tint="@android:color/white"
+                android:contentDescription="@string/save_screenshot_desc"
                 android:padding="7dp"
                 android:scaleType="centerInside"
-                android:contentDescription="Save Screenshot" />
-        </LinearLayout>
+                android:src="@android:drawable/ic_menu_camera"
+                app:layout_constraintBottom_toBottomOf="@+id/cg_timeframe"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/cg_timeframe"
+                app:layout_constraintTop_toTopOf="@+id/cg_timeframe"
+                app:tint="@android:color/white" />
 
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginTop="4dp"
-            android:layout_marginStart="-16dp"
-            android:layout_marginEnd="-16dp">
+            <FrameLayout
+                android:id="@+id/fl_chart_container"
+                android:layout_width="0dp"
+                android:layout_height="300dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginStart="-16dp"
+                android:layout_marginEnd="-16dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/cg_timeframe">
 
-            <ImageView
-                android:layout_width="150dp"
+                <ImageView
+                    android:layout_width="150dp"
+                    android:layout_height="150dp"
+                    android:layout_gravity="center"
+                    android:alpha="0.1"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_launcher_foreground" />
+
+                <com.github.mikephil.charting.charts.LineChart
+                    android:id="@+id/chart_bitcoin"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <io.github.hypnoticHODL.bitprix.ui.FearAndGreedGauge
+                android:id="@+id/fng_gauge"
+                android:layout_width="0dp"
                 android:layout_height="150dp"
-                android:layout_gravity="center"
-                android:alpha="0.1"
-                android:src="@drawable/ic_launcher_foreground"
-                android:contentDescription="@null" />
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/fl_chart_container" />
 
-            <com.github.mikephil.charting.charts.LineChart
-                android:id="@+id/chart_bitcoin"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-        </FrameLayout>
-
-        <com.example.bitcoinwidget.ui.FearAndGreedGauge
-            android:id="@+id/fng_gauge"
-            android:layout_width="match_parent"
-            android:layout_height="150dp"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="4dp" />
-
-    </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

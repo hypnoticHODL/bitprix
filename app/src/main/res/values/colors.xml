@@ -7,4 +7,18 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="price_up">#00C853</color>
+    <color name="price_down">#FF1744</color>
+    <color name="bitcoin_orange">#F59E0B</color>
+    <color name="preview_bg">#EEEEEE</color>
+    <color name="marker_bg">#CC000000</color>
+    <color name="chart_axis_label">#8E8E8E</color>
+
+    <!-- Fear & Greed Gauge Colors -->
+    <color name="gauge_deep_red">#B71C1C</color>
+    <color name="gauge_orange">#EF6C00</color>
+    <color name="gauge_yellow">#FBC02D</color>
+    <color name="gauge_light_green">#7CB342</color>
+    <color name="gauge_deep_green">#2E7D32</color>
 </resources>
