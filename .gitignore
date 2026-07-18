@@ -19,3 +19,4 @@ app/release/
 *.aab
 *.dm
 output-metadata.json
+.artifacts/
