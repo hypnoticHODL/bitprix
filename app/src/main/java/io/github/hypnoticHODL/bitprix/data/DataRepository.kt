@@ -23,7 +23,10 @@ object DataRepository {
     private const val MIN_FORCE_REFRESH_INTERVAL = 30 * 1000L // 30 seconds cooldown for forced refreshes
 
     private val gson = Gson()
-    private val fetchMutex = Mutex()
+    private val priceMutex = Mutex()
+    private val chartMutex = Mutex()
+    private val fngMutex = Mutex()
+    private val currencyMutex = Mutex()
 
     // Memory cache to handle simultaneous requests in the same process
     private val memoryCache = mutableMapOf<String, Pair<Any, Long>>()
@@ -32,7 +35,7 @@ object DataRepository {
         return System.currentTimeMillis() - timestamp < CACHE_DURATION
     }
 
-    suspend fun getSupportedCurrencies(context: Context): List<String>? = fetchMutex.withLock {
+    suspend fun getSupportedCurrencies(context: Context): List<String>? = currencyMutex.withLock {
         val timestampKey = "${KEY_CURRENCIES}_timestamp"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -73,7 +76,7 @@ object DataRepository {
         }
     }
 
-    suspend fun getBitcoinPrice(context: Context, currency: String = "usd", forceRefresh: Boolean = false): BitcoinPriceResponse? = fetchMutex.withLock {
+    suspend fun getBitcoinPrice(context: Context, currency: String = "usd", forceRefresh: Boolean = false): BitcoinPriceResponse? = priceMutex.withLock {
         val currencyKey = currency.lowercase()
         val cacheKey = "${KEY_PRICE}_$currencyKey"
         val timestampKey = "${cacheKey}_timestamp"
@@ -136,7 +139,7 @@ object DataRepository {
         }
     }
 
-    suspend fun getMarketChart(context: Context, currency: String = "usd", days: String = "365", forceRefresh: Boolean = false): MarketChartResponse? = fetchMutex.withLock {
+    suspend fun getMarketChart(context: Context, currency: String = "usd", days: String = "365", forceRefresh: Boolean = false): MarketChartResponse? = chartMutex.withLock {
         val currencyKey = currency.lowercase()
         val cacheKey = "${KEY_CHART}_${currencyKey}_$days"
         val timestampKey = "${cacheKey}_timestamp"
@@ -189,7 +192,7 @@ object DataRepository {
         }
     }
 
-    suspend fun getFearAndGreed(context: Context, forceRefresh: Boolean = false): FearAndGreedResponse? = fetchMutex.withLock {
+    suspend fun getFearAndGreed(context: Context, forceRefresh: Boolean = false): FearAndGreedResponse? = fngMutex.withLock {
         val timestampKey = "${KEY_FNG}_timestamp"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 

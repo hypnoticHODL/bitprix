@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.util.Log
 
 class BitcoinWidgetProvider : AppWidgetProvider() {
@@ -35,8 +36,19 @@ class BitcoinWidgetProvider : AppWidgetProvider() {
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        Log.d("BitcoinWidgetProvider", "onDisabled: Cancelling WorkManager")
+        Log.d("BitcoinWidgetProvider", "onDisabled: No more widgets, cancelling WorkManager")
         BitcoinWidgetWorker.cancelWork(context)
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle?
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        Log.d("BitcoinWidgetProvider", "onAppWidgetOptionsChanged for widget $appWidgetId")
+        BitcoinWidgetWorker.enqueueOneTimeWork(context, intArrayOf(appWidgetId), forceRefresh = false)
     }
 
     override fun onUpdate(

@@ -20,19 +20,23 @@ import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.os.Environment
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import java.io.File
 import java.io.FileOutputStream
 import java.net.UnknownHostException
-import androidx.lifecycle.lifecycleScope
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import io.github.hypnoticHODL.bitprix.R
 import io.github.hypnoticHODL.bitprix.data.DataRepository
+import io.github.hypnoticHODL.bitprix.model.BitcoinPriceResponse
 import io.github.hypnoticHODL.bitprix.widget.WidgetSettingsManager
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.AxisBase
@@ -59,6 +63,7 @@ import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
+    private val viewModel: MainViewModel by viewModels()
     private lateinit var tvPairLabel: TextView
     private lateinit var tvPrice: TextView
     private lateinit var tvChangePercent: TextView
@@ -69,9 +74,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cgTimeframe: ChipGroup
     private lateinit var btnScreenshot: ImageButton
     private var currentCurrency: String = "usd"
-    private var currentDays: Int = 1
-    private var fullYearChartData: List<List<Double>>? = null
-    private var oneDayChartData: List<List<Double>>? = null
     
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -100,11 +102,12 @@ class MainActivity : AppCompatActivity() {
             AppWidgetManager.INVALID_APPWIDGET_ID
         )
 
-        currentCurrency = if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+        val currentCurrency = if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
             WidgetSettingsManager.getCurrency(this, appWidgetId)
         } else {
             "usd"
         }
+        viewModel.setCurrency(currentCurrency)
 
         tvPairLabel = findViewById(R.id.tv_pair_label)
         tvPrice = findViewById(R.id.tv_bitcoin_price)
@@ -118,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         cgTimeframe.check(R.id.chip_1d)
         cgTimeframe.setOnCheckedStateChangeListener { _, checkedIds ->
             val checkedId = checkedIds.firstOrNull() ?: return@setOnCheckedStateChangeListener
-            currentDays = when (checkedId) {
+            val days = when (checkedId) {
                 R.id.chip_1d -> 1
                 R.id.chip_1w -> 7
                 R.id.chip_1m -> 30
@@ -126,15 +129,11 @@ class MainActivity : AppCompatActivity() {
                 R.id.chip_1y -> 365
                 else -> 1
             }
-            if (currentDays == 1) {
-                loadOneDayChart()
-            } else {
-                filterAndDisplayChart()
-            }
+            viewModel.setTimeframe(days)
         }
 
         swipeRefresh.setOnRefreshListener {
-            loadData(forceRefresh = true)
+            viewModel.loadData(forceRefresh = true)
         }
 
         btnScreenshot.setOnClickListener {
@@ -142,7 +141,58 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupChart()
-        loadData(forceRefresh = false)
+        observeViewModel()
+        viewModel.loadData(forceRefresh = false)
+    }
+
+    private fun observeViewModel() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    swipeRefresh.isRefreshing = state.isLoading
+                    currentCurrency = state.currency
+                    
+                    state.priceResponse?.let { updatePriceUi(it) }
+                    
+                    state.fngResponse?.data?.firstOrNull()?.let {
+                        fngGauge.setData(it.value.toIntOrNull() ?: 0, it.valueClassification)
+                    }
+
+                    state.displayChartData?.let { updateChart(it, state.timeframe) }
+
+                    state.error?.let {
+                        handleError(Exception(it), state.errorContext ?: getString(R.string.error_unexpected))
+                        viewModel.clearError()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updatePriceUi(response: BitcoinPriceResponse) {
+        val price = response.getPrice(currentCurrency)
+        val change = response.get24hChange(currentCurrency)
+        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+        val formattedPrice = String.format(Locale.US, "%,.2f", price)
+        val formattedChange = String.format(Locale.US, "%s%.2f%%", if (change >= 0) "+" else "", change)
+        val changeColor = if (change >= 0) {
+            ContextCompat.getColor(this, R.color.price_up)
+        } else {
+            ContextCompat.getColor(this, R.color.price_down)
+        }
+        
+        val updateTime = if (response.lastFetchTime > 0) {
+            timeFormat.format(Date(response.lastFetchTime))
+        } else {
+            getString(R.string.price_placeholder)
+        }
+
+        tvPairLabel.text = getString(R.string.widget_pair_format, currentCurrency.uppercase())
+        tvPrice.text = formattedPrice
+        tvChangePercent.text = formattedChange
+        tvChangePercent.setTextColor(changeColor)
+        tvLastUpdate.text = updateTime
     }
 
     private fun setupChart() {
@@ -238,127 +288,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun loadData(forceRefresh: Boolean = false) {
-        swipeRefresh.isRefreshing = true
-        lifecycleScope.launch {
-            try {
-                supervisorScope {
-                    val priceDeferred = async { DataRepository.getBitcoinPrice(this@MainActivity, currentCurrency, forceRefresh) }
-                    val chartDeferred = async { DataRepository.getMarketChart(this@MainActivity, currentCurrency, "365", forceRefresh) }
-                    val oneDayChartDeferred = if (currentDays == 1) {
-                        async { DataRepository.getMarketChart(this@MainActivity, currentCurrency, "1", forceRefresh) }
-                    } else null
-                    val fngDeferred = async { DataRepository.getFearAndGreed(this@MainActivity, forceRefresh) }
-
-                    try {
-                        val priceResponse = priceDeferred.await()
-                        priceResponse?.let {
-                            val price = it.getPrice(currentCurrency)
-                            val change = it.get24hChange(currentCurrency)
-                            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-
-                            val formattedPrice = String.format(Locale.US, "%,.2f", price)
-                            val formattedChange = String.format(Locale.US, "%s%.2f%%", if (change >= 0) "+" else "", change)
-                            val changeColor = if (change >= 0) {
-                                ContextCompat.getColor(this@MainActivity, R.color.price_up)
-                            } else {
-                                ContextCompat.getColor(this@MainActivity, R.color.price_down)
-                            }
-                            
-                            val updateTime = if (it.lastFetchTime > 0) {
-                                timeFormat.format(Date(it.lastFetchTime))
-                            } else {
-                                getString(R.string.price_placeholder)
-                            }
-
-                            tvPairLabel.text = getString(R.string.widget_pair_format, currentCurrency.uppercase())
-                            tvPrice.text = formattedPrice
-                            tvChangePercent.text = formattedChange
-                            tvChangePercent.setTextColor(changeColor)
-                            tvLastUpdate.text = updateTime
-                        } ?: run {
-                            tvPrice.text = getString(R.string.price_placeholder)
-                            tvChangePercent.text = getString(R.string.change_placeholder)
-                            tvLastUpdate.text = getString(R.string.time_placeholder)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        handleError(e, getString(R.string.context_price))
-                    }
-
-                    try {
-                        val chartResponse = chartDeferred.await()
-                        fullYearChartData = chartResponse?.prices
-                        
-                        val oneDayResponse = oneDayChartDeferred?.await()
-                        if (oneDayResponse != null) {
-                            oneDayChartData = oneDayResponse.prices
-                        }
-                        
-                        if (currentDays == 1 && oneDayChartData != null) {
-                            updateChart(oneDayChartData!!)
-                        } else {
-                            filterAndDisplayChart()
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        handleError(e, getString(R.string.context_chart))
-                    }
-
-                    try {
-                        val fngResponse = fngDeferred.await()
-                        fngResponse?.data?.firstOrNull()?.let {
-                            fngGauge.setData(it.value.toIntOrNull() ?: 0, it.valueClassification)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        handleError(e, getString(R.string.context_fng))
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(this@MainActivity, getString(R.string.error_unexpected), Toast.LENGTH_SHORT).show()
-            } finally {
-                swipeRefresh.isRefreshing = false
-            }
-        }
-    }
-
-    private fun loadOneDayChart() {
-        if (oneDayChartData != null) {
-            updateChart(oneDayChartData!!)
-            return
-        }
-
-        lifecycleScope.launch {
-            try {
-                val response = DataRepository.getMarketChart(this@MainActivity, currentCurrency, "1", forceRefresh = false)
-                oneDayChartData = response?.prices
-                if (currentDays == 1) {
-                    oneDayChartData?.let { updateChart(it) }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    private fun filterAndDisplayChart() {
-        val allPrices = fullYearChartData ?: return
-        if (allPrices.isEmpty()) return
-
-        val now = System.currentTimeMillis()
-        val startTime = now - (currentDays.toLong() * 24 * 60 * 60 * 1000)
-
-        val filteredPrices = if (currentDays >= 365) {
-            allPrices
-        } else {
-            allPrices.filter { it[0] >= startTime }
-        }
-
-        updateChart(filteredPrices)
-    }
-
     private fun handleError(e: Exception, context: String) {
         val message = when {
             e is HttpException && e.code() == 429 -> getString(R.string.error_rate_limit)
@@ -377,7 +306,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateChart(prices: List<List<Double>>) {
+    private fun updateChart(prices: List<List<Double>>, timeframe: Int) {
         if (prices.isEmpty()) return
         
         val entries = prices.mapIndexed { index, list ->
@@ -429,7 +358,7 @@ class MainActivity : AppCompatActivity() {
                 val index = value.toInt()
                 if (index >= 0 && index < prices.size) {
                     val timestamp = prices[index][0].toLong()
-                    return if (currentDays == 1) {
+                    return if (timeframe == 1) {
                         hourFormat.format(Date(timestamp))
                     } else {
                         dayFormat.format(Date(timestamp))
@@ -530,8 +459,9 @@ class MainActivity : AppCompatActivity() {
         override fun refreshContent(e: Entry?, highlight: Highlight?) {
             if (e == null) return
             val timestamp = e.data as? Long ?: 0L
+            val timeframe = viewModel.uiState.value.timeframe
             
-            tvDate.text = if (currentDays == 1) {
+            tvDate.text = if (timeframe == 1) {
                 hourFormat.format(Date(timestamp))
             } else {
                 dayFormat.format(Date(timestamp))

@@ -188,30 +188,42 @@ class BitcoinWidgetWorker(
             val componentName = ComponentName(context, BitcoinWidgetProvider::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             
+            if (appWidgetIds.isEmpty()) {
+                Log.d("BitcoinWidgetWorker", "No widgets found, skipping periodic work enqueue")
+                cancelWork(context)
+                return
+            }
+
             var minInterval = 30 // Default 30 minutes
             
-            if (appWidgetIds.isNotEmpty()) {
-                var foundMin = Int.MAX_VALUE
-                for (id in appWidgetIds) {
-                    val interval = WidgetSettingsManager.getRefreshInterval(context, id)
-                    if (interval < foundMin) {
-                        foundMin = interval
-                    }
-                }
-                if (foundMin != Int.MAX_VALUE) {
-                    minInterval = foundMin
+            var foundMin = Int.MAX_VALUE
+            for (id in appWidgetIds) {
+                val interval = WidgetSettingsManager.getRefreshInterval(context, id)
+                if (interval < foundMin) {
+                    foundMin = interval
                 }
             }
+            if (foundMin != Int.MAX_VALUE) {
+                minInterval = foundMin
+            }
+
+            // WorkManager minimum is 15 minutes
+            val finalInterval = minInterval.coerceAtLeast(15)
 
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
             val workRequest = PeriodicWorkRequestBuilder<BitcoinWidgetWorker>(
-                minInterval.toLong(), TimeUnit.MINUTES,
+                finalInterval.toLong(), TimeUnit.MINUTES,
                 5, TimeUnit.MINUTES
             )
             .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                WorkRequest.MIN_BACKOFF_MILLIS,
+                TimeUnit.MILLISECONDS
+            )
             .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -219,7 +231,7 @@ class BitcoinWidgetWorker(
                 ExistingPeriodicWorkPolicy.UPDATE,
                 workRequest
             )
-            Log.d("BitcoinWidgetWorker", "Periodic work enqueued with interval: $minInterval min")
+            Log.d("BitcoinWidgetWorker", "Periodic work enqueued with interval: $finalInterval min (requested: $minInterval min)")
         }
 
         fun enqueueOneTimeWork(context: Context, appWidgetIds: IntArray, forceRefresh: Boolean = false) {

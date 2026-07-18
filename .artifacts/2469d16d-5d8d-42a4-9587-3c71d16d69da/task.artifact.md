@@ -1,0 +1,5 @@
+- `[x]` Fix Chart Timeframe Switching Bug
+    - `[x]` Update `MainUiState` in `MainViewModel.kt`
+    - `[x]` Implement filtering logic in `MainViewModel.kt`
+    - `[x]` Refactor `MainActivity.kt` to observe timeframe and display data
+    - `[x]` Verify all timeframes work correctly
