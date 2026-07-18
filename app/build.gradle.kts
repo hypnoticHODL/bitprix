@@ -16,6 +16,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    lint {
+        disable += "OldTargetApi"
+    }
+
     buildFeatures {
         buildConfig = true
     }

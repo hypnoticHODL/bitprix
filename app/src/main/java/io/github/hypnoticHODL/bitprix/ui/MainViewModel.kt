@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import io.github.hypnoticHODL.bitprix.data.DataRepository
 import io.github.hypnoticHODL.bitprix.model.BitcoinPriceResponse
 import io.github.hypnoticHODL.bitprix.model.FearAndGreedResponse
-import io.github.hypnoticHODL.bitprix.model.MarketChartResponse
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,9 +75,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         _uiState.update { it.copy(error = e.message, errorContext = "Price") }
                         null 
                     }
-                    val chartResponse = try { chartDeferred.await() } catch (e: Exception) { null }
-                    val oneDayResponse = try { oneDayChartDeferred.await() } catch (e: Exception) { null }
-                    val fngResponse = try { fngDeferred.await() } catch (e: Exception) { null }
+                    val chartResponse = try { chartDeferred.await() } catch (_: Exception) { null }
+                    val oneDayResponse = try { oneDayChartDeferred.await() } catch (_: Exception) { null }
+                    val fngResponse = try { fngDeferred.await() } catch (_: Exception) { null }
 
                     _uiState.update {
                         it.copy(

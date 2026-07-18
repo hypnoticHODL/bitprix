@@ -35,7 +35,6 @@ import java.io.FileOutputStream
 import java.net.UnknownHostException
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import io.github.hypnoticHODL.bitprix.R
-import io.github.hypnoticHODL.bitprix.data.DataRepository
 import io.github.hypnoticHODL.bitprix.model.BitcoinPriceResponse
 import io.github.hypnoticHODL.bitprix.widget.WidgetSettingsManager
 import com.github.mikephil.charting.charts.LineChart
@@ -51,9 +50,7 @@ import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import com.github.mikephil.charting.utils.MPPointF
 import com.google.android.material.chip.ChipGroup
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.OutputStream
