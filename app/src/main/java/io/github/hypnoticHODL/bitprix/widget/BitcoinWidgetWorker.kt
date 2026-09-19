@@ -12,6 +12,7 @@ import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.work.*
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 import java.net.UnknownHostException
 import io.github.hypnoticHODL.bitprix.R
@@ -41,17 +42,21 @@ class BitcoinWidgetWorker(
             appWidgetManager.getAppWidgetIds(componentName)
         }
 
+        // Run-local: deliberately not a field. Two worker runs can overlap (a periodic run and
+        // a manual one), and a shared set would let one run's cleanup consume the other's ids.
+        val stillLoading = mutableSetOf<Int>()
+
         try {
             for (appWidgetId in appWidgetIds) {
-                updateWidget(appWidgetId, appWidgetManager, forceRefresh)
+                updateWidget(appWidgetId, appWidgetManager, forceRefresh, stillLoading)
             }
         } finally {
-            // If this run was stopped or cancelled part-way, some widget may still be showing
-            // the "..." placeholder. Repaint those from cache so it can never get stuck.
-            if (pendingPlaceholderIds.isNotEmpty()) {
-                Log.d("BitcoinWidgetWorker", "Run ended with ${pendingPlaceholderIds.size} widget(s) still loading; re-rendering")
-                enqueueOneTimeWork(context, pendingPlaceholderIds.toIntArray(), forceRefresh = false)
-                pendingPlaceholderIds.clear()
+            // A stopped or superseded run can leave a widget showing the "..." placeholder.
+            // Schedule one cheap, non-forced pass to repaint those from cache so a widget can
+            // never get stuck loading. On a clean run the set is empty and this is a no-op.
+            if (stillLoading.isNotEmpty()) {
+                Log.d("BitcoinWidgetWorker", "Run ended with ${stillLoading.size} widget(s) still loading; re-rendering")
+                enqueueOneTimeWork(context, stillLoading.toIntArray(), forceRefresh = false, dedupe = false)
             }
         }
 
@@ -59,22 +64,23 @@ class BitcoinWidgetWorker(
     }
 
     /**
-     * Widget ids currently showing the loading placeholder.
-     *
      * This worker intentionally declares no getForegroundInfo(): expedited work is only
      * requested on Android 12+ (see enqueueOneTimeWork), where the platform runs it as an
      * expedited job rather than a foreground service. Below 12 WorkManager would have to start
      * a foreground service, which cannot legally run without a notification — and a
      * notification for a sub-second price fetch is noise, so we simply do not expedite there.
      */
-    private val pendingPlaceholderIds = mutableSetOf<Int>()
-
-    private suspend fun updateWidget(appWidgetId: Int, appWidgetManager: AppWidgetManager, forceRefresh: Boolean) {
+    private suspend fun updateWidget(
+        appWidgetId: Int,
+        appWidgetManager: AppWidgetManager,
+        forceRefresh: Boolean,
+        stillLoading: MutableSet<Int>
+    ) {
         if (forceRefresh) {
             val loadingViews = RemoteViews(context.packageName, R.layout.widget_layout)
             loadingViews.setTextViewText(R.id.widget_price_text, "...")
             appWidgetManager.partiallyUpdateAppWidget(appWidgetId, loadingViews)
-            pendingPlaceholderIds.add(appWidgetId)
+            stillLoading.add(appWidgetId)
         }
 
         val views = RemoteViews(context.packageName, R.layout.widget_layout)
@@ -161,6 +167,11 @@ class BitcoinWidgetWorker(
                 views.setTextViewText(R.id.widget_price_text, context.getString(R.string.price_placeholder))
                 views.setTextViewText(R.id.widget_time_label, timeFormat.format(Date()))
             }
+        } catch (e: CancellationException) {
+            // A superseded (REPLACE'd) or stopped run must not paint an error onto the widget –
+            // the newer run owns the final state. Rethrow so WorkManager sees the cancellation.
+            Log.d("BitcoinWidgetWorker", "Update for widget $appWidgetId cancelled (superseded)")
+            throw e
         } catch (e: Exception) {
             Log.e("BitcoinWidgetWorker", "Error updating widget $appWidgetId", e)
             // Friendly, widget-sized copy. Previously this leaked the raw HTTP status ("429")
@@ -174,11 +185,12 @@ class BitcoinWidgetWorker(
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
-        pendingPlaceholderIds.remove(appWidgetId)
+        stillLoading.remove(appWidgetId)
     }
 
     companion object {
         private const val WORK_NAME = "BitcoinWidgetUpdateWork"
+        private const val WORK_NAME_ONE_TIME = "BitcoinWidgetOneTimeUpdateWork"
         private const val KEY_WIDGET_IDS = "widget_ids"
         private const val KEY_FORCE_REFRESH = "force_refresh"
 
@@ -233,7 +245,18 @@ class BitcoinWidgetWorker(
             Log.d("BitcoinWidgetWorker", "Periodic work enqueued with interval: $finalInterval min (requested: $minInterval min)")
         }
 
-        fun enqueueOneTimeWork(context: Context, appWidgetIds: IntArray, forceRefresh: Boolean = false) {
+        /**
+         * @param dedupe when true (the default) this request REPLACES any in-flight one-time
+         *   refresh, so overlapping requests cannot run concurrently and race to write the same
+         *   widgets. Internal recovery runs pass false so they cannot cancel a newer, legitimate
+         *   refresh that has already been enqueued.
+         */
+        fun enqueueOneTimeWork(
+            context: Context,
+            appWidgetIds: IntArray,
+            forceRefresh: Boolean = false,
+            dedupe: Boolean = true
+        ) {
             val data = Data.Builder()
                 .putIntArray(KEY_WIDGET_IDS, appWidgetIds)
                 .putBoolean(KEY_FORCE_REFRESH, forceRefresh)
@@ -251,16 +274,34 @@ class BitcoinWidgetWorker(
 
             val workRequest = workRequestBuilder.build()
 
-            // If it's a single widget (manual refresh), use unique work to avoid queuing
-            if (appWidgetIds.size == 1 && forceRefresh) {
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    "ManualRefresh_${appWidgetIds[0]}",
-                    ExistingWorkPolicy.REPLACE,
-                    workRequest
-                )
-            } else {
+            if (!dedupe) {
                 WorkManager.getInstance(context).enqueue(workRequest)
+                Log.d("BitcoinWidgetWorker", "Recovery work enqueued for widgets: ${appWidgetIds.joinToString()}")
+                return
             }
+
+            // Manual single-widget refreshes are keyed per widget so that tapping one widget's
+            // refresh does not cancel another widget's in-flight refresh. Every other one-time
+            // refresh (system APPWIDGET_UPDATE, boot, resize) shares one key and therefore
+            // supersedes the previous request.
+            //
+            // NOTE: these two keys are independent, so a manual refresh of widget A can still
+            // run concurrently with a batch refresh that also covers A. That is tolerable: a
+            // manual tap is also followed by the system's own APPWIDGET_UPDATE, so overlapping
+            // refreshes are unavoidable here, and DataRepository de-duplicates the network call
+            // (per-resource mutex + 5-minute memory cache) — the overlap costs a redundant
+            // RemoteViews write, not a redundant API request.
+            val uniqueName = if (appWidgetIds.size == 1 && forceRefresh) {
+                "ManualRefresh_${appWidgetIds[0]}"
+            } else {
+                WORK_NAME_ONE_TIME
+            }
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                uniqueName,
+                ExistingWorkPolicy.REPLACE,
+                workRequest
+            )
             Log.d("BitcoinWidgetWorker", "One-time work enqueued for widgets: ${appWidgetIds.joinToString()} (force=$forceRefresh)")
         }
         

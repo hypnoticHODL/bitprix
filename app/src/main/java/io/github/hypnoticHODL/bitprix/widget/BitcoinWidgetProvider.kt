@@ -15,6 +15,7 @@ class BitcoinWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("BitcoinWidgetProvider", "onReceive: ${intent.action}")
+
         if (intent.action == ACTION_REFRESH) {
             val appWidgetId = intent.getIntExtra(
                 AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -25,6 +26,7 @@ class BitcoinWidgetProvider : AppWidgetProvider() {
                 BitcoinWidgetWorker.enqueueOneTimeWork(context, intArrayOf(appWidgetId), forceRefresh = true)
             }
         }
+
         super.onReceive(context, intent)
     }
 
