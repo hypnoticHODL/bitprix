@@ -20,3 +20,11 @@ app/release/
 *.dm
 output-metadata.json
 .artifacts/
+
+# Signing material must never be committed. If a signing key reaches a public
+# repository it is compromised and the app's identity has to be rotated.
+*.jks
+*.keystore
+*.p12
+*.pepk
+keystore.properties
