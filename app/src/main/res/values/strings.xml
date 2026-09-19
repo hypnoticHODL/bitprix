@@ -1,9 +1,12 @@
 <resources>
     <string name="app_name">Bitprix</string>
     <string name="widget_pair_format">Bitcoin %1$s</string>
+    <string name="pair_label_with_selector">Bitcoin %1$s ▾</string>
+    <string name="currency_selector_desc">Change currency</string>
+    <string name="currency_selector_desc_format">Bitcoin %1$s, tap to change currency</string>
 
     <!-- Main Activity -->
-    <string name="price_placeholder">--,---.--</string>
+    <string name="price_placeholder">-,---.--</string>
     <string name="change_placeholder">0.00%</string>
     <string name="time_placeholder">--:--</string>
     <string name="timeframe_1d">1D</string>
@@ -22,6 +25,31 @@
     <string name="placeholder_price">67,234.56</string>
     <string name="placeholder_change">+2.41%</string>
     <string name="placeholder_time">19:01</string>
+
+    <!-- Change period labelling.
+         The headline percentage is timeframe-aware, so it must always say which period it
+         describes. This label is driven by the data source, not by the selected chip. -->
+    <string name="change_period_24h">24h</string>
+    <string name="change_value_format">%1$s%2$.2f%%</string>
+    <string name="price_unavailable">—</string>
+    <string name="change_unavailable">—</string>
+    <string name="change_period_desc_format">Change over %1$s: %2$s</string>
+    <string name="chart_desc_format">%1$s price chart. Swipe to explore values.</string>
+
+    <!-- Fear &amp; Greed gauge (drawn on a Canvas, so needs an explicit description) -->
+    <string name="gauge_desc_format">Fear and Greed index: %1$d out of 100, %2$s</string>
+    <string name="gauge_desc_score_only">Fear and Greed index: %1$d out of 100</string>
+
+    <!-- Freshness -->
+    <string name="updated_at_format">Updated %1$s</string>
+    <string name="updated_yesterday_format">Updated yesterday %1$s</string>
+
+    <!-- Errors (user-facing, no HTTP codes or internal tokens) -->
+    <string name="error_offline">You appear to be offline. Pull down to retry.</string>
+    <string name="error_rate_limit_friendly">Too many requests. Please wait a moment.</string>
+    <string name="error_server">Couldn\'t reach the price service.</string>
+    <string name="error_unknown">Something went wrong. Pull down to retry.</string>
+    <string name="action_retry">Retry</string>
 
     <!-- Widget Config -->
     <string name="label_theme">Theme</string>
@@ -57,9 +85,15 @@
     <!-- Widget -->
     <string name="refresh_desc">Refresh</string>
     <string name="error_text">Error</string>
-    <string name="last_update_never">Never</string>
+    <string name="last_update_never">Never updated</string>
 
-    <!-- Error Messages -->
+    <!-- Widget face. The widget always reports the 24h change, so it says so. -->
+    <string name="widget_change_24h_format">24h %1$s</string>
+    <string name="widget_error_offline">Offline</string>
+    <string name="widget_error_rate_limited">Rate limited</string>
+    <string name="widget_error_generic">Unavailable</string>
+
+    <!-- Legacy error strings still used by the widget worker -->
     <string name="error_rate_limit">Rate limit reached (429). Please wait.</string>
     <string name="error_no_internet">No internet connection</string>
     <string name="error_network">Network error %1$d in %2$s</string>

@@ -11,6 +11,7 @@ object WidgetSettingsManager {
     private const val PREFIX_TEXT_SIZE = "text_size_"
     private const val PREFIX_CURRENCY = "currency_"
     private const val PREFIX_REFRESH_INTERVAL = "refresh_interval_"
+    private const val PREFIX_IS_LIGHT_THEME = "is_light_theme_"
 
     fun saveWidgetSettings(
         context: Context,
@@ -20,7 +21,8 @@ object WidgetSettingsManager {
         textColor: Int,
         textSize: Int,
         currency: String,
-        refreshInterval: Int
+        refreshInterval: Int,
+        isLightTheme: Boolean
     ) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().apply {
             putInt(PREFIX_BG_COLOR + appWidgetId, bgColor)
@@ -29,6 +31,7 @@ object WidgetSettingsManager {
             putInt(PREFIX_TEXT_SIZE + appWidgetId, textSize)
             putString(PREFIX_CURRENCY + appWidgetId, currency)
             putInt(PREFIX_REFRESH_INTERVAL + appWidgetId, refreshInterval)
+            putBoolean(PREFIX_IS_LIGHT_THEME + appWidgetId, isLightTheme)
             apply()
         }
     }
@@ -63,6 +66,23 @@ object WidgetSettingsManager {
         return prefs.getInt(PREFIX_REFRESH_INTERVAL + appWidgetId, 30) // Default 30 min
     }
 
+    /**
+     * Whether the widget uses the light theme.
+     *
+     * Returns null when the setting predates this field, so callers can fall back to the
+     * legacy bg-colour inference rather than silently defaulting to dark.
+     */
+    fun getIsLightTheme(context: Context, appWidgetId: Int): Boolean? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val key = PREFIX_IS_LIGHT_THEME + appWidgetId
+        return if (prefs.contains(key)) prefs.getBoolean(key, true) else null
+    }
+
+    fun hasSavedSettings(context: Context, appWidgetId: Int): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.contains(PREFIX_CURRENCY + appWidgetId)
+    }
+
     fun deleteWidgetSettings(context: Context, appWidgetId: Int) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().apply {
             remove(PREFIX_BG_COLOR + appWidgetId)
@@ -71,6 +91,7 @@ object WidgetSettingsManager {
             remove(PREFIX_TEXT_SIZE + appWidgetId)
             remove(PREFIX_CURRENCY + appWidgetId)
             remove(PREFIX_REFRESH_INTERVAL + appWidgetId)
+            remove(PREFIX_IS_LIGHT_THEME + appWidgetId)
             apply()
         }
     }

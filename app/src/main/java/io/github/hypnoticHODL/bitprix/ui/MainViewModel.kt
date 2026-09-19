@@ -13,6 +13,44 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import retrofit2.HttpException
+import java.io.IOException
+import java.net.UnknownHostException
+
+/** The period a displayed percentage change refers to. */
+enum class ChangePeriod(val days: Int) {
+    DAY_24H(1),
+    WEEK(7),
+    MONTH(30),
+    SIX_MONTHS(180),
+    YEAR(365);
+
+    companion object {
+        fun fromDays(days: Int): ChangePeriod = when (days) {
+            7 -> WEEK
+            30 -> MONTH
+            180 -> SIX_MONTHS
+            365 -> YEAR
+            else -> DAY_24H
+        }
+    }
+}
+
+/**
+ * Failure categories we can explain to the user. Kept free of HTTP codes and
+ * internal context tokens so nothing leaks into user-facing copy.
+ */
+enum class ErrorKind { OFFLINE, RATE_LIMIT, SERVER, UNKNOWN }
+
+internal fun classifyError(e: Throwable): ErrorKind = when {
+    e is HttpException && e.code() == 429 -> ErrorKind.RATE_LIMIT
+    e is HttpException -> ErrorKind.SERVER
+    e is UnknownHostException -> ErrorKind.OFFLINE
+    // A dead proxy / refused connection / timeout surfaces as a plain IOException,
+    // not UnknownHostException, so treat the whole family as offline.
+    e is IOException -> ErrorKind.OFFLINE
+    else -> ErrorKind.UNKNOWN
+}
 
 data class MainUiState(
     val isLoading: Boolean = false,
@@ -23,8 +61,12 @@ data class MainUiState(
     val rawOneDayChartData: List<List<Double>>? = null,
     val displayChartData: List<List<Double>>? = null,
     val fngResponse: FearAndGreedResponse? = null,
-    val error: String? = null,
-    val errorContext: String? = null
+    /** Null means "unknown" and must render as a placeholder, never as 0.00%. */
+    val changePercent: Double? = null,
+    /** Always describes the source [changePercent] was actually derived from. */
+    val changePeriod: ChangePeriod = ChangePeriod.DAY_24H,
+    val chartUnavailable: Boolean = false,
+    val errorKind: ErrorKind? = null
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,32 +80,69 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setTimeframe(days: Int) {
         _uiState.update { it.copy(timeframe = days) }
-        updateDisplayChart()
+        recomputeDerived()
     }
 
-    private fun updateDisplayChart() {
+    /**
+     * Recomputes everything downstream of the raw responses.
+     *
+     * The headline percentage is deliberately timeframe-aware, but the period label is
+     * derived from the data that actually produced the number — never from the selected
+     * chip. If the chart for the selected range is missing (e.g. a cold start where only
+     * the price request succeeded) we fall back to the 24h change and report DAY_24H, so
+     * the label can never disagree with the value.
+     */
+    private fun recomputeDerived() {
         val state = _uiState.value
-        val data = if (state.timeframe == 1) {
-            state.rawOneDayChartData
-        } else {
-            state.rawFullYearChartData?.let { allPrices ->
-                val now = System.currentTimeMillis()
-                val startTime = now - (state.timeframe.toLong() * 24 * 60 * 60 * 1000)
+
+        val chartData = when {
+            state.timeframe == 1 -> state.rawOneDayChartData
+            else -> state.rawFullYearChartData?.let { allPrices ->
                 if (state.timeframe >= 365) {
                     allPrices
                 } else {
-                    allPrices.filter { it[0] >= startTime }
+                    val startTime = System.currentTimeMillis() - state.timeframe.toLong() * DAY_MS
+                    allPrices.filter { it.isNotEmpty() && it[0] >= startTime }
                 }
             }
         }
-        _uiState.update { it.copy(displayChartData = data) }
+
+        val fromChart = percentFromChart(chartData)
+        val fromPrice = state.priceResponse?.get24hChangeOrNull(state.currency)
+
+        val percent: Double?
+        val period: ChangePeriod
+        when {
+            fromChart != null -> {
+                percent = fromChart
+                period = ChangePeriod.fromDays(state.timeframe)
+            }
+            fromPrice != null -> {
+                // Chart for this range is unusable — be honest about what we are showing.
+                percent = fromPrice
+                period = ChangePeriod.DAY_24H
+            }
+            else -> {
+                percent = null
+                period = ChangePeriod.DAY_24H
+            }
+        }
+
+        _uiState.update {
+            it.copy(
+                displayChartData = chartData,
+                changePercent = percent,
+                changePeriod = period,
+                chartUnavailable = chartData.isNullOrEmpty()
+            )
+        }
     }
 
     fun loadData(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, errorKind = null) }
             val currentCurrency = _uiState.value.currency
-            
+
             try {
                 supervisorScope {
                     val priceDeferred = async { DataRepository.getBitcoinPrice(getApplication(), currentCurrency, forceRefresh) }
@@ -71,9 +150,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val oneDayChartDeferred = async { DataRepository.getMarketChart(getApplication(), currentCurrency, "1", forceRefresh) }
                     val fngDeferred = async { DataRepository.getFearAndGreed(getApplication(), forceRefresh) }
 
-                    val priceResponse = try { priceDeferred.await() } catch (e: Exception) { 
-                        _uiState.update { it.copy(error = e.message, errorContext = "Price") }
-                        null 
+                    var errorKind: ErrorKind? = null
+
+                    val priceResponse = try {
+                        priceDeferred.await()
+                    } catch (e: Exception) {
+                        errorKind = classifyError(e)
+                        null
                     }
                     val chartResponse = try { chartDeferred.await() } catch (_: Exception) { null }
                     val oneDayResponse = try { oneDayChartDeferred.await() } catch (_: Exception) { null }
@@ -85,18 +168,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             rawFullYearChartData = chartResponse?.prices,
                             rawOneDayChartData = oneDayResponse?.prices,
                             fngResponse = fngResponse,
-                            isLoading = false
+                            isLoading = false,
+                            errorKind = errorKind
                         )
                     }
-                    updateDisplayChart()
+                    recomputeDerived()
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { it.copy(isLoading = false, errorKind = classifyError(e)) }
+                recomputeDerived()
             }
         }
     }
-    
-    fun clearError() {
-        _uiState.update { it.copy(error = null, errorContext = null) }
+
+    companion object {
+        private const val DAY_MS = 24 * 60 * 60 * 1000L
+
+        /**
+         * Percentage change across a chart series. Returns null when there is not enough
+         * data, or when the opening price is zero and the result would be meaningless.
+         */
+        internal fun percentFromChart(prices: List<List<Double>>?): Double? {
+            if (prices == null || prices.size < 2) return null
+            val first = prices.first().getOrNull(1) ?: return null
+            val last = prices.last().getOrNull(1) ?: return null
+            if (first == 0.0) return null
+            return (last - first) / first * 100.0
+        }
     }
 }

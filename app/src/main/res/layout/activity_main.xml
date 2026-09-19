@@ -23,7 +23,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="@string/widget_pair_format"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/currency_selector_desc"
+                android:focusable="true"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text="@string/pair_label_with_selector"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -33,6 +41,7 @@
                 android:id="@+id/tv_bitcoin_price"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
                 android:text="@string/price_placeholder"
                 android:textSize="32sp"
                 android:textStyle="bold"
@@ -40,94 +49,161 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tv_pair_label" />
 
-            <TextView
-                android:id="@+id/tv_change_percent"
+            <!--
+              The headline percentage is timeframe-aware, so it is always paired with the
+              period label describing what it measures. Both are driven by the ViewModel.
+            -->
+            <LinearLayout
+                android:id="@+id/change_row"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/change_placeholder"
-                android:textSize="18sp"
-                android:textStyle="bold"
+                android:layout_marginTop="2dp"
+                android:baselineAligned="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tv_bitcoin_price" />
+                app:layout_constraintTop_toBottomOf="@+id/tv_bitcoin_price">
+
+                <TextView
+                    android:id="@+id/tv_change_percent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:text="@string/change_placeholder"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_change_period"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/change_period_24h"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tv_last_update"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginTop="2dp"
                 android:text="@string/time_placeholder"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tv_change_percent" />
+                app:layout_constraintTop_toBottomOf="@+id/change_row" />
 
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/cg_timeframe"
-                android:layout_width="wrap_content"
+            <!-- Persistent, retryable error state (replaces the transient toast-only path) -->
+            <LinearLayout
+                android:id="@+id/error_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tv_last_update">
+
+                <TextView
+                    android:id="@+id/tv_error"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/text_stale"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btn_retry"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="48dp"
+                    android:minHeight="48dp"
+                    android:text="@string/action_retry"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!--
+              A horizontal scroller keeps every timeframe reachable at large font scales.
+              Previously the chip row grew past the screen edge and clipped the controls.
+            -->
+            <HorizontalScrollView
+                android:id="@+id/timeframe_scroll"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
+                android:clipToPadding="false"
+                android:scrollbars="none"
                 app:layout_constraintEnd_toStartOf="@+id/btn_screenshot"
-                app:layout_constraintHorizontal_chainStyle="packed"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tv_last_update"
-                app:selectionRequired="true"
-                app:singleLine="true"
-                app:singleSelection="true">
+                app:layout_constraintTop_toBottomOf="@+id/error_row">
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_1d"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/cg_timeframe"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="@string/timeframe_1d" />
+                    app:selectionRequired="true"
+                    app:singleLine="true"
+                    app:singleSelection="true">
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_1w"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/timeframe_1w" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_1d"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/timeframe_1d" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_1m"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/timeframe_1m" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_1w"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/timeframe_1w" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_6m"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/timeframe_6m" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_1m"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/timeframe_1m" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_1y"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/timeframe_1y" />
-            </com.google.android.material.chip.ChipGroup>
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_6m"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/timeframe_6m" />
 
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_1y"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/timeframe_1y" />
+                </com.google.android.material.chip.ChipGroup>
+            </HorizontalScrollView>
+
+            <!-- 48dp touch target (was 32dp, below the accessibility minimum) -->
             <ImageButton
                 android:id="@+id/btn_screenshot"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="8dp"
                 android:background="@drawable/bg_screenshot_btn"
                 android:contentDescription="@string/save_screenshot_desc"
-                android:padding="7dp"
+                android:padding="12dp"
                 android:scaleType="centerInside"
-                android:src="@android:drawable/ic_menu_camera"
-                app:layout_constraintBottom_toBottomOf="@+id/cg_timeframe"
+                android:src="@drawable/ic_save_chart"
+                app:layout_constraintBottom_toBottomOf="@+id/timeframe_scroll"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/cg_timeframe"
-                app:layout_constraintTop_toTopOf="@+id/cg_timeframe"
-                app:tint="@android:color/white" />
+                app:layout_constraintTop_toTopOf="@+id/timeframe_scroll"
+                app:tint="@color/screenshot_icon_tint" />
 
             <FrameLayout
                 android:id="@+id/fl_chart_container"
@@ -138,7 +214,7 @@
                 android:layout_marginEnd="-16dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/cg_timeframe">
+                app:layout_constraintTop_toBottomOf="@+id/timeframe_scroll">
 
                 <ImageView
                     android:layout_width="150dp"

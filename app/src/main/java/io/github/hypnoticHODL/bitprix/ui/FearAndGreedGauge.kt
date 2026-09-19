@@ -70,6 +70,15 @@ class FearAndGreedGauge @JvmOverloads constructor(
     fun setData(score: Int, classification: String) {
         this.score = score.coerceIn(0, 100)
         this.classification = classification
+
+        // The score is drawn onto a Canvas, so it never enters the accessibility tree on its
+        // own. Without this, screen-reader users get silence for one of the three primary
+        // data widgets on the screen.
+        contentDescription = if (classification.isBlank()) {
+            context.getString(R.string.gauge_desc_score_only, this.score)
+        } else {
+            context.getString(R.string.gauge_desc_format, this.score, classification)
+        }
         invalidate()
     }
 

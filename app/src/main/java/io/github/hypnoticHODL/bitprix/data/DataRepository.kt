@@ -7,10 +7,16 @@ import io.github.hypnoticHODL.bitprix.model.MarketChartResponse
 import io.github.hypnoticHODL.bitprix.model.FearAndGreedResponse
 import io.github.hypnoticHODL.bitprix.network.NetworkClient
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import androidx.core.content.edit
+import com.google.gson.reflect.TypeToken
+import java.io.File
+import java.lang.reflect.Type
+import java.util.concurrent.ConcurrentHashMap
 
 object DataRepository {
     private const val PREFS_NAME = "bitcoin_widget_cache"
@@ -19,6 +25,7 @@ object DataRepository {
     private const val KEY_FNG = "cached_fng"
     private const val KEY_CURRENCIES = "cached_currencies"
     private const val KEY_LAST_UPDATE = "last_update_time"
+    private const val CHART_CACHE_DIR = "chart_cache"
     private const val CACHE_DURATION = 5 * 60 * 1000L // 5 minutes
     private const val MIN_FORCE_REFRESH_INTERVAL = 30 * 1000L // 30 seconds cooldown for forced refreshes
 
@@ -28,8 +35,10 @@ object DataRepository {
     private val fngMutex = Mutex()
     private val currencyMutex = Mutex()
 
-    // Memory cache to handle simultaneous requests in the same process
-    private val memoryCache = mutableMapOf<String, Pair<Any, Long>>()
+    // Memory cache to handle simultaneous requests in the same process.
+    // ConcurrentHashMap is required because entries for different keys are written
+    // while holding different per-resource mutexes.
+    private val memoryCache = ConcurrentHashMap<String, Pair<Any, Long>>()
 
     private fun isCacheFresh(timestamp: Long): Boolean {
         return System.currentTimeMillis() - timestamp < CACHE_DURATION
@@ -51,7 +60,7 @@ object DataRepository {
         // 2. Check SharedPreferences Cache
         val lastUpdate = prefs.getLong(timestampKey, 0L)
         if (isCacheFresh(lastUpdate)) {
-            val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
+            val type = object : TypeToken<List<String>>() {}.type
             val cached: List<String>? = getFromCache(context, KEY_CURRENCIES, type)
             if (cached != null) {
                 memoryCache[KEY_CURRENCIES] = Pair(cached, lastUpdate)
@@ -71,7 +80,7 @@ object DataRepository {
             response
         } catch (e: Exception) {
             Log.e("DataRepository", "Error fetching currencies: ${e.message}")
-            val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
+            val type = object : TypeToken<List<String>>() {}.type
             getFromCache(context, KEY_CURRENCIES, type)
         }
     }
@@ -139,7 +148,17 @@ object DataRepository {
         }
     }
 
+    /**
+     * Market chart history.
+     *
+     * Unlike the other payloads this one is large (the 365-day series is ~38 KB of JSON), so
+     * it is cached as a file in [Context.getCacheDir] rather than in SharedPreferences.
+     * Prefs load synchronously in full on first access and are rewritten on every commit,
+     * which made this an expensive thing to keep there. Only the small timestamp bookkeeping
+     * stays in prefs.
+     */
     suspend fun getMarketChart(context: Context, currency: String = "usd", days: String = "365", forceRefresh: Boolean = false): MarketChartResponse? = chartMutex.withLock {
+        purgeLegacyChartCache(context)
         val currencyKey = currency.lowercase()
         val cacheKey = "${KEY_CHART}_${currencyKey}_$days"
         val timestampKey = "${cacheKey}_timestamp"
@@ -157,7 +176,7 @@ object DataRepository {
 
             val lastUpdate = prefs.getLong(timestampKey, 0L)
             if (isCacheFresh(lastUpdate)) {
-                val cached = getFromCache(context, cacheKey, MarketChartResponse::class.java)
+                val cached = readChartFromDisk(context, cacheKey, MarketChartResponse::class.java)
                 if (cached != null) {
                     cached.lastFetchTime = lastUpdate
                     memoryCache[cacheKey] = Pair(cached, lastUpdate)
@@ -177,12 +196,12 @@ object DataRepository {
             )
             val now = System.currentTimeMillis()
             response.lastFetchTime = now
-            saveToCache(context, cacheKey, response)
+            writeChartToDisk(context, cacheKey, response)
             prefs.edit { putLong(timestampKey, now) }
             memoryCache[cacheKey] = Pair(response, now)
             response
         } catch (e: Exception) {
-            val stale = getFromCache(context, cacheKey, MarketChartResponse::class.java)
+            val stale = readChartFromDisk(context, cacheKey, MarketChartResponse::class.java)
             if (stale != null) {
                 stale.lastFetchTime = prefs.getLong(timestampKey, 0L)
                 stale
@@ -244,6 +263,8 @@ object DataRepository {
         }
     }
 
+    // --- Small payloads: SharedPreferences is fine ---
+
     private fun <T> saveToCache(context: Context, key: String, data: T) {
         val json = gson.toJson(data)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
@@ -251,7 +272,7 @@ object DataRepository {
         }
     }
 
-    private fun <T> getFromCache(context: Context, key: String, type: java.lang.reflect.Type): T? {
+    private fun <T> getFromCache(context: Context, key: String, type: Type): T? {
         val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(key, null) ?: return null
         return try {
@@ -270,6 +291,59 @@ object DataRepository {
             null
         }
     }
+
+    // --- Large payloads: file-backed cache ---
+
+    /**
+     * Removes chart payloads written by earlier versions, which stored the full series in
+     * SharedPreferences. Without this the old ~38 KB entries would linger and keep
+     * inflating the prefs file we are trying to shrink.
+     */
+    @Volatile
+    private var legacyCachePurged = false
+
+    private fun purgeLegacyChartCache(context: Context) {
+        if (legacyCachePurged) return
+        legacyCachePurged = true
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val legacyKeys = prefs.all.keys.filter {
+                it.startsWith(KEY_CHART + "_") && !it.endsWith("_timestamp")
+            }
+            if (legacyKeys.isNotEmpty()) {
+                prefs.edit { legacyKeys.forEach { key -> remove(key) } }
+                Log.d("DataRepository", "Purged ${legacyKeys.size} legacy chart cache entries from prefs")
+            }
+        } catch (e: Exception) {
+            Log.e("DataRepository", "Failed to purge legacy chart cache: ${e.message}")
+        }
+    }
+
+    private fun chartCacheFile(context: Context, key: String): File =
+        File(File(context.cacheDir, CHART_CACHE_DIR), "$key.json")
+
+    private suspend fun writeChartToDisk(context: Context, key: String, data: Any) {
+        withContext(Dispatchers.IO) {
+            try {
+                val file = chartCacheFile(context, key)
+                file.parentFile?.mkdirs()
+                file.writeText(gson.toJson(data))
+            } catch (e: Exception) {
+                // A failed cache write must never break the fetch it is trying to record.
+                Log.e("DataRepository", "Failed to persist chart cache for $key: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun <T> readChartFromDisk(context: Context, key: String, clazz: Class<T>): T? =
+        withContext(Dispatchers.IO) {
+            try {
+                val file = chartCacheFile(context, key)
+                if (!file.exists()) return@withContext null
+                gson.fromJson(file.readText(), clazz)
+            } catch (e: Exception) {
+                Log.e("DataRepository", "Failed to read chart cache for $key: ${e.message}")
+                null
+            }
+        }
 }
-
-

@@ -6,14 +6,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.app.NotificationChannel
-import android.app.NotificationManager
+import android.os.Build
 import android.util.Log
 import android.util.TypedValue
 import android.widget.RemoteViews
-import android.content.pm.ServiceInfo
 import androidx.work.*
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import retrofit2.HttpException
 import java.net.UnknownHostException
@@ -44,43 +41,40 @@ class BitcoinWidgetWorker(
             appWidgetManager.getAppWidgetIds(componentName)
         }
 
-        for (appWidgetId in appWidgetIds) {
-            updateWidget(appWidgetId, appWidgetManager, forceRefresh)
+        try {
+            for (appWidgetId in appWidgetIds) {
+                updateWidget(appWidgetId, appWidgetManager, forceRefresh)
+            }
+        } finally {
+            // If this run was stopped or cancelled part-way, some widget may still be showing
+            // the "..." placeholder. Repaint those from cache so it can never get stuck.
+            if (pendingPlaceholderIds.isNotEmpty()) {
+                Log.d("BitcoinWidgetWorker", "Run ended with ${pendingPlaceholderIds.size} widget(s) still loading; re-rendering")
+                enqueueOneTimeWork(context, pendingPlaceholderIds.toIntArray(), forceRefresh = false)
+                pendingPlaceholderIds.clear()
+            }
         }
 
         return Result.success()
     }
 
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        val channel = NotificationChannel(
-            "widget_refresh",
-            "Widget Refresh",
-            NotificationManager.IMPORTANCE_LOW
-        )
-        notificationManager.createNotificationChannel(channel)
-
-        val notification = NotificationCompat.Builder(context, "widget_refresh")
-            .setContentTitle("Refreshing Bitcoin Widget")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-
-        return ForegroundInfo(
-            1,
-            notification,
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            } else 0
-        )
-    }
+    /**
+     * Widget ids currently showing the loading placeholder.
+     *
+     * This worker intentionally declares no getForegroundInfo(): expedited work is only
+     * requested on Android 12+ (see enqueueOneTimeWork), where the platform runs it as an
+     * expedited job rather than a foreground service. Below 12 WorkManager would have to start
+     * a foreground service, which cannot legally run without a notification — and a
+     * notification for a sub-second price fetch is noise, so we simply do not expedite there.
+     */
+    private val pendingPlaceholderIds = mutableSetOf<Int>()
 
     private suspend fun updateWidget(appWidgetId: Int, appWidgetManager: AppWidgetManager, forceRefresh: Boolean) {
         if (forceRefresh) {
             val loadingViews = RemoteViews(context.packageName, R.layout.widget_layout)
             loadingViews.setTextViewText(R.id.widget_price_text, "...")
             appWidgetManager.partiallyUpdateAppWidget(appWidgetId, loadingViews)
+            pendingPlaceholderIds.add(appWidgetId)
         }
 
         val views = RemoteViews(context.packageName, R.layout.widget_layout)
@@ -92,14 +86,10 @@ class BitcoinWidgetWorker(
         val textSize = WidgetSettingsManager.getTextSize(context, appWidgetId)
         val currency = WidgetSettingsManager.getCurrency(context, appWidgetId)
 
-        val colorWithOpacity = Color.argb(
-            bgOpacity,
-            Color.red(bgColor),
-            Color.green(bgColor),
-            Color.blue(bgColor)
-        )
+        // Tint with an opaque color; transparency is applied once via setImageAlpha.
+        val tintColor = Color.rgb(Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor))
 
-        views.setInt(R.id.widget_background, "setColorFilter", colorWithOpacity)
+        views.setInt(R.id.widget_background, "setColorFilter", tintColor)
         views.setInt(R.id.widget_background, "setImageAlpha", bgOpacity)
 
         views.setTextColor(R.id.widget_pair_label, textColor)
@@ -149,7 +139,13 @@ class BitcoinWidgetWorker(
                 }
                 
                 val formattedPrice = String.format(Locale.US, "%,.2f", price)
-                val formattedChange = String.format(Locale.US, "%s%.2f%%", if (change >= 0) "+" else "", change)
+                // The widget deliberately shows the 24h change (unlike the app, which follows
+                // the selected timeframe) so the two surfaces can differ. Labelling it keeps
+                // that difference legible rather than looking like a contradiction.
+                val formattedChange = context.getString(
+                    R.string.widget_change_24h_format,
+                    String.format(Locale.US, "%s%.2f%%", if (change >= 0) "+" else "", change)
+                )
                 val changeColor = if (change >= 0) {
                     ContextCompat.getColor(context, R.color.price_up)
                 } else {
@@ -167,15 +163,18 @@ class BitcoinWidgetWorker(
             }
         } catch (e: Exception) {
             Log.e("BitcoinWidgetWorker", "Error updating widget $appWidgetId", e)
+            // Friendly, widget-sized copy. Previously this leaked the raw HTTP status ("429")
+            // into the price slot, which reads as a price rather than an error.
             val errorText = when {
-                e is HttpException && e.code() == 429 -> context.getString(R.string.error_429_short)
-                e is UnknownHostException -> context.getString(R.string.error_no_connection_short)
-                else -> context.getString(R.string.error_text)
+                e is HttpException && e.code() == 429 -> context.getString(R.string.widget_error_rate_limited)
+                e is UnknownHostException -> context.getString(R.string.widget_error_offline)
+                else -> context.getString(R.string.widget_error_generic)
             }
             views.setTextViewText(R.id.widget_price_text, errorText)
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
+        pendingPlaceholderIds.remove(appWidgetId)
     }
 
     companion object {
@@ -243,7 +242,10 @@ class BitcoinWidgetWorker(
             val workRequestBuilder = OneTimeWorkRequestBuilder<BitcoinWidgetWorker>()
                 .setInputData(data)
             
-            if (forceRefresh) {
+            // Expedite only on Android 12+, where WorkManager uses the platform's expedited job.
+            // Below 12 it would emulate this with a foreground service, which legally requires a
+            // notification the user does not want; there we fall back to ordinary work.
+            if (forceRefresh && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             }
 
