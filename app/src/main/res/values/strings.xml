@@ -4,6 +4,10 @@
     <string name="pair_label_with_selector">Bitcoin %1$s ▾</string>
     <string name="currency_selector_desc">Change currency</string>
     <string name="currency_selector_desc_format">Bitcoin %1$s, tap to change currency</string>
+    <!-- The catalogue is currency codes only, so the hint says so rather than implying
+         that names like "euro" or "dollar" will match. -->
+    <string name="currency_search_hint">Search by code, e.g. USD</string>
+    <string name="currency_no_results">No currencies match that search</string>
 
     <!-- Main Activity -->
     <string name="price_placeholder">-,---.--</string>
@@ -84,6 +88,7 @@
 
     <!-- Widget -->
     <string name="refresh_desc">Refresh</string>
+    <string name="widget_description">Bitcoin price at a glance</string>
     <string name="error_text">Error</string>
     <string name="last_update_never">Never updated</string>
 

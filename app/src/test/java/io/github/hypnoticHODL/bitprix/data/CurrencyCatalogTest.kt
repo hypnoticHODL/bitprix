@@ -30,6 +30,40 @@ class CurrencyCatalogTest {
     fun `is case insensitive`() {
         assertEquals(listOf("USD"), CurrencyCatalog.filterSupported(listOf("USD")))
     }
+
+    @Test
+    fun `query returns the whole list when blank`() {
+        val all = CurrencyCatalog.FALLBACK
+        assertEquals(all, CurrencyCatalog.filterByQuery(all, ""))
+        assertEquals(all, CurrencyCatalog.filterByQuery(all, "   "))
+    }
+
+    @Test
+    fun `query matches on code, case insensitively`() {
+        val all = listOf("EUR", "GBP", "USD")
+        assertEquals(listOf("USD"), CurrencyCatalog.filterByQuery(all, "usd"))
+        assertEquals(listOf("USD"), CurrencyCatalog.filterByQuery(all, "USD"))
+    }
+
+    @Test
+    fun `query matches substrings`() {
+        val all = listOf("EUR", "GBP", "USD")
+        // "u" should reach both EUR and USD, not just the prefix.
+        assertEquals(listOf("EUR", "USD"), CurrencyCatalog.filterByQuery(all, "u"))
+    }
+
+    @Test
+    fun `query trims surrounding whitespace`() {
+        val all = listOf("EUR", "GBP", "USD")
+        assertEquals(listOf("USD"), CurrencyCatalog.filterByQuery(all, "  USD  "))
+    }
+
+    @Test
+    fun `query with no match yields empty, not the fallback`() {
+        // The picker shows a "no results" view for this; returning the full list would make
+        // an unmatched search silently look like a successful one.
+        assertEquals(emptyList<String>(), CurrencyCatalog.filterByQuery(listOf("EUR", "USD"), "zzz"))
+    }
 }
 
 class BitcoinPriceResponseTest {

@@ -28,6 +28,13 @@
             android:textColor="@color/black"
             android:textSize="14sp" />
 
+        <!--
+          Kept at 24dp deliberately. The widget's declared minimum is 110x40dp, so a 48dp touch
+          target cannot fit without either crowding the price text or forcing a layout redesign
+          - and this view cannot be visually verified from here. Raised the widget's minHeight to
+          48dp so it is at least legible, but the touch-target shortfall remains a known
+          limitation (see walkthrough) rather than something faked with padding.
+        -->
         <ImageView
             android:id="@+id/widget_refresh_icon"
             android:layout_width="24dp"
@@ -36,7 +43,7 @@
             android:layout_alignParentEnd="true"
             android:contentDescription="@string/refresh_desc"
             android:padding="4dp"
-            android:src="@android:drawable/ic_popup_sync" />
+            android:src="@drawable/ic_refresh" />
 
         <TextView
             android:id="@+id/widget_price_text"

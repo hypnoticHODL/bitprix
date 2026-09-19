@@ -27,4 +27,19 @@ object CurrencyCatalog {
             .sorted()
         return if (filtered.isEmpty()) FALLBACK else filtered
     }
+
+    /**
+     * Narrows a currency list by a free-text query, matching on the currency code.
+     *
+     * Codes only, deliberately: the catalogue carries no display names, and matching on
+     * localised names like "euro" or "dollar" is not something a 3-letter code list can
+     * support. The search field's hint sets that expectation.
+     *
+     * @return the whole list for a blank query, otherwise the matching subset in input order.
+     */
+    fun filterByQuery(currencies: List<String>, query: String): List<String> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return currencies
+        return currencies.filter { it.contains(trimmed, ignoreCase = true) }
+    }
 }

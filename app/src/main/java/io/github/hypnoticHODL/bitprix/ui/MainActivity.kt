@@ -12,8 +12,13 @@ import android.graphics.Canvas
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
+import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import android.Manifest
@@ -565,33 +570,81 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Currency picker with a search field.
+     *
+     * Previously this was `setSingleChoiceItems` over 46 entries: findable only by repeated
+     * swiping, and the active selection could sit off-screen so the dialog looked like it had
+     * none. Search filters by currency code, and the selected row is scrolled into view and
+     * ticked on open.
+     */
     private fun showCurrencyDialog(currencies: List<String>) {
         val selectedIndex = currencies.indexOfFirst { it.equals(currentCurrency, ignoreCase = true) }
-        val builder = AlertDialog.Builder(this)
-            .setTitle(R.string.label_target_currency)
-            .setSingleChoiceItems(currencies.toTypedArray(), selectedIndex) { dialog, which ->
-                dialog.dismiss()
-                val selected = currencies[which].lowercase()
-                if (selected != currentCurrency) {
-                    AppSettings.setCurrency(this, selected)
-                    viewModel.setCurrency(selected)
-                    viewModel.loadData(forceRefresh = false)
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
 
-        val dialog = builder.create()
+        val view = layoutInflater.inflate(R.layout.dialog_currency_picker, null)
+        val filterInput = view.findViewById<EditText>(R.id.et_currency_filter)
+        val listContainer = view.findViewById<View>(R.id.fl_currency_list)
+        val listView = view.findViewById<ListView>(R.id.lv_currencies)
+        val emptyView = view.findViewById<TextView>(R.id.tv_currency_empty)
 
-        // A 46-item single-choice list restores a stale scroll offset of its own accord, so
-        // the currently selected row (and its tick) could sit off-screen — the dialog looked
-        // like it had no selection at all. Scroll to it explicitly once the list is laid out.
-        dialog.setOnShowListener {
-            if (selectedIndex >= 0) {
-                (dialog as? AlertDialog)?.listView?.post {
-                    dialog.listView?.setSelection(selectedIndex)
+        listView.emptyView = emptyView
+        listView.choiceMode = ListView.CHOICE_MODE_SINGLE
+
+        // The currently visible (possibly filtered) rows. Held as a var so the click handler
+        // below resolves a list position against the same list the adapter was built from.
+        var visible: List<String> = currencies
+
+        fun render(query: String) {
+            visible = CurrencyCatalog.filterByQuery(currencies, query)
+            listView.adapter = ArrayAdapter(
+                this,
+                android.R.layout.simple_list_item_single_choice,
+                visible
+            )
+            // Only the unfiltered list can be trusted to line up with `selectedIndex`.
+            // Posted because on the first render the list has no layout yet, and a selection
+            // set before measurement does not scroll.
+            if (query.isBlank() && selectedIndex >= 0) {
+                listView.post {
+                    listView.setItemChecked(selectedIndex, true)
+                    listView.setSelection(selectedIndex)
                 }
             }
         }
+
+        filterInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) = render(s?.toString().orEmpty())
+        })
+
+        render("")
+
+        // Cap the list height so the dialog (plus the soft keyboard) cannot overflow a
+        // landscape screen.
+        listContainer.post {
+            val maxHeight = (resources.displayMetrics.heightPixels * LIST_MAX_HEIGHT_FRACTION).toInt()
+            if (listContainer.height > maxHeight) {
+                listContainer.layoutParams = listContainer.layoutParams.apply { height = maxHeight }
+            }
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.label_target_currency)
+            .setView(view)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+
+        listView.setOnItemClickListener { _, _, position, _ ->
+            val selected = visible.getOrNull(position)?.lowercase(Locale.US) ?: return@setOnItemClickListener
+            dialog.dismiss()
+            if (selected != currentCurrency) {
+                AppSettings.setCurrency(this, selected)
+                viewModel.setCurrency(selected)
+                viewModel.loadData(forceRefresh = false)
+            }
+        }
+
         dialog.show()
     }
 
@@ -641,5 +694,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val DAY_MS = 24 * 60 * 60 * 1000L
+        private const val LIST_MAX_HEIGHT_FRACTION = 0.5f
     }
 }
